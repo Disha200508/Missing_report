@@ -3,7 +3,10 @@ export async function api(path, opts = {}) {
   const res = await fetch("/api" + path, opts);
   let data = {};
   try { data = await res.json(); } catch (e) { /* empty body */ }
-  if (!res.ok) throw Object.assign(new Error(data.error || `Request failed (HTTP ${res.status})`), { status: res.status });
+  if (!res.ok) {
+    const message = data.details ? `${data.error} [Details: ${data.details}]` : (data.error || `Request failed (HTTP ${res.status})`);
+    throw Object.assign(new Error(message), { status: res.status });
+  }
   return data;
 }
 
