@@ -488,11 +488,23 @@ async function reportDetailPage(matchId){
     document.getElementById("back-alerts").onclick = () => { tab = "alerts"; };
     $app.querySelectorAll("[data-act]").forEach(btn => btn.onclick = async () => {
       const act = btn.dataset.act;
-      if (act === "verify" && !confirm("Confirm these are the same person and notify the family?")) return;
-      if (act === "reject" && !confirm("Mark this match as NOT the same person?")) return;
+      let bodyPayload = {};
+      if (act === "verify" || act === "notify") {
+        const contactName = (c && c.contact_name) ? c.contact_name : "Family";
+        const personName = (c && c.name) ? c.name : "the missing person";
+        const caseCode = (c && (c.code || "#" + c.id)) || "Case";
+        const loc = (s && s.location) || (c && c.last_seen_location) || "the reported area";
+        const defaultMsg = `Dear ${contactName}, MPIS Update: A possible sighting of ${personName} (${caseCode}) has been verified near ${loc}. An officer will contact you shortly.`;
+        const promptLabel = act === "verify" ? "Personalize WhatsApp / Email alert to family before verifying:" : "Personalize WhatsApp / Email alert to family:";
+        const customMsg = prompt(promptLabel, defaultMsg);
+        if (customMsg === null) return; // User cancelled
+        bodyPayload = { message: customMsg.trim() };
+      } else if (act === "reject") {
+        if (!confirm("Mark this match as NOT the same person?")) return;
+      }
       btn.disabled = true;
       try{
-        await postJSON(`/admin/matches/${matchId}/${act}`);
+        await postJSON(`/admin/matches/${matchId}/${act}`, bodyPayload);
         toast("Report updated");
         reportDetailPage(matchId);
       }catch(ex){ toast(ex.message); btn.disabled = false; }

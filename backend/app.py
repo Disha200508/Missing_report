@@ -583,15 +583,30 @@ def admin_match_detail(mid):
     notifs = list(d.notifications.find({"match_id": mid}, {"_id": 0}).sort("id", -1))
     return jsonify({"match": m, "case": c, "sighting": s, "history": hist, "notifications": notifs})
 
+def make_alert_message(case, sighting=None, custom_msg=None):
+    if custom_msg and str(custom_msg).strip():
+        return clean(str(custom_msg), 800)
+    c_code = case.get("code") or f"#{case['id']}"
+    contact = case.get("contact_name") or "Family"
+    loc = (sighting or {}).get("location") or case.get("last_seen_location") or "the reported area"
+    name = case.get("name") or "the missing person"
+    return (
+        f"Dear {contact}, MPIS Update: A possible sighting of {name} ({c_code}) "
+        f"has been verified near {loc}. An officer will contact you shortly. "
+        f"Track case: https://missing-report.onrender.com/#/track"
+    )
+
 @app.post("/api/admin/matches/<int:mid>/<action>")
 @admin_required
 def review_match(mid, action):
     if action not in ("verify", "reject", "reopen"): return err("Invalid action")
+    payload = request.get_json(silent=True) or {}
+    custom_msg = payload.get("message")
     d = db()
     m = d.matches.find_one({"id": mid})
     if not m: return err("Not found", 404)
     case = d.missing_persons.find_one({"id": m["case_id"]})
-    sight = d.sightings.find_one({"id": m["sighting_id"]}, {"code": 1})
+    sight = d.sightings.find_one({"id": m["sighting_id"]})
     c_code = case.get("code") or f"#{case['id']}"
     s_code = (sight or {}).get("code") or f"#{m['sighting_id']}"
     ts = now()
@@ -601,8 +616,8 @@ def review_match(mid, action):
         d.missing_persons.update_one({"id": case["id"]}, {"$set": {"status": "Verified", "updated_at": ts}})
         log(case["id"], f"Match with sighting {s_code} VERIFIED", session["user"])
         if not was_verified:
-            notify(mid, case, f"MPIS update for case {c_code} ({case['name']}): a possible sighting has been verified "
-                              f"by our team. An officer will contact you shortly.")
+            msg = make_alert_message(case, sight, custom_msg)
+            notify(mid, case, msg)
     elif action == "reject":
         d.matches.update_one({"id": mid}, {"$set": {"status": "rejected", "reviewed_by": session["user"], "reviewed_at": ts}})
         log(case["id"], f"Match with sighting {s_code} rejected", session["user"])
@@ -624,18 +639,16 @@ def review_match(mid, action):
 @admin_required
 def resend_match_alert(mid):
     """Allow staff to resend SMS/Email alert for a verified match."""
+    payload = request.get_json(silent=True) or {}
+    custom_msg = payload.get("message")
     d = db()
     m = d.matches.find_one({"id": mid})
     if not m: return err("Not found", 404)
     case = d.missing_persons.find_one({"id": m["case_id"]})
     if not case: return err("Case not found", 404)
-    c_code = case.get("code") or f"#{case['id']}"
-    results = notify(
-        mid,
-        case,
-        f"MPIS update for case {c_code} ({case['name']}): a possible sighting has been verified "
-        f"by our team. An officer will contact you shortly.",
-    )
+    sight = d.sightings.find_one({"id": m["sighting_id"]})
+    msg = make_alert_message(case, sight, custom_msg)
+    results = notify(mid, case, msg)
     log(case["id"], f"Family alert resent for match #{mid}", session["user"])
     return jsonify({"ok": True, "results": results})
 

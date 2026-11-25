@@ -87,7 +87,7 @@ def send_sms(phone: str, body: str) -> tuple[str, str | None]:
             date_str = datetime.datetime.now().strftime("%b %d")
             client.messages.create(
                 content_sid=content_sid,
-                content_variables=json.dumps({"1": date_str, "2": body[:80]}),
+                content_variables=json.dumps({"1": date_str, "2": body[:200]}),
                 from_=sender,
                 to=dest,
             )
