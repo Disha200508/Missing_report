@@ -102,8 +102,8 @@ async function home(){
 
 /* ------------------------------------------------ shared form helpers */
 function photoField(){
-  return `<label>Photo *<small>Clear, front-facing, good light. JPG / PNG, max 10 MB.</small>
-    <div class="drop"><input type="file" name="photo" id="photo" accept="image/*" required>
+  return `<label>Photo *<small>Clear, front-facing, good light. All image formats supported, max 10 MB.</small>
+    <div class="drop"><input type="file" name="photo" id="photo" accept="image/*,.jpg,.jpeg,.png,.webp,.bmp,.gif,.tiff,.tif,.jfif,.avif,.heic,.heif,.ico" required>
     <img id="preview" alt="" hidden></div></label>`;
 }
 function wirePreview(){

@@ -13,6 +13,11 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash
 from PIL import Image
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except Exception:
+    pass
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
 try:
@@ -44,7 +49,10 @@ app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE", "").lower(
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-in-production")
 
 CASE_STATUSES = ["Active", "Under Investigation", "Probable Match Found", "Verified", "Closed"]
-ALLOWED_EXT = {"jpg", "jpeg", "png", "webp"}
+ALLOWED_EXT = {
+    "jpg", "jpeg", "png", "webp", "bmp", "tiff", "tif", "gif",
+    "jfif", "avif", "heic", "heif", "ico", "dib", "ppm", "pgm", "pbm", "pnm", "tga"
+}
 
 # ---------------------------------------------------------------- face engine (lazy)
 engine = None
@@ -101,20 +109,34 @@ def save_photo(file_storage, subdir="missing_persons"):
     """Validate + re-encode as JPEG (also strips EXIF/GPS metadata) into the category folder. Returns relative path."""
     if not file_storage or not file_storage.filename:
         raise ValueError("A photo is required")
-    ext = file_storage.filename.rsplit(".", 1)[-1].lower()
-    if ext not in ALLOWED_EXT:
-        raise ValueError("Photo must be JPG, PNG or WEBP")
+
+    ext = file_storage.filename.rsplit(".", 1)[-1].lower() if "." in file_storage.filename else ""
+    if ext and ext not in ALLOWED_EXT:
+        mimetype = getattr(file_storage, "mimetype", "") or ""
+        if not mimetype.startswith("image/"):
+            raise ValueError(f"Unsupported file format (.{ext}). Please upload an image.")
+
     try:
+        file_storage.stream.seek(0)
         img = Image.open(file_storage.stream)
         img.load()
-        img = img.convert("RGB")
     except Exception:
-        raise ValueError("That file is not a valid image")
-    img.thumbnail((1600, 1600))
+        raise ValueError("The uploaded file is not a valid or readable image. Please select an image file.")
+
+    # Convert transparency cleanly onto a white canvas (PNG, WEBP, GIF, etc.)
+    if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+        img = img.convert("RGBA")
+        canvas = Image.new("RGB", img.size, (255, 255, 255))
+        canvas.paste(img, mask=img.split()[-1])
+        img = canvas
+    else:
+        img = img.convert("RGB")
+
+    img.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
     target_dir = MISSING_DIR if subdir == "missing_persons" else SIGHTING_DIR
     os.makedirs(target_dir, exist_ok=True)
     filename = uuid.uuid4().hex + ".jpg"
-    img.save(os.path.join(target_dir, filename), "JPEG", quality=90)
+    img.save(os.path.join(target_dir, filename), "JPEG", quality=92)
     return f"{subdir}/{filename}"
 
 def resolve_photo_path(photo_ref):

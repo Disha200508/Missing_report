@@ -12,3 +12,4 @@ pymongo
 dnspython
 python-dotenv
 twilio
+pillow-heif
