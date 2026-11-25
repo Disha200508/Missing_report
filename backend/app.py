@@ -316,6 +316,20 @@ def health():
         "timestamp": now(),
     }), status_code
 
+@app.route("/api/whatsapp-reply", methods=["GET", "POST"])
+def whatsapp_webhook():
+    """Twilio incoming WhatsApp webhook to return custom auto-reply."""
+    reply_msg = (
+        "Thank you for contacting the Missing Person Identification System (MPIS). "
+        "To report a missing person or submit a sighting report, visit: https://missing-report.onrender.com. "
+        "For urgent emergency help, please call 112."
+    )
+    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Message>{reply_msg}</Message>
+</Response>"""
+    return Response(twiml, mimetype="application/xml")
+
 @app.post("/api/cases")
 def register_case():
     f = request.form
