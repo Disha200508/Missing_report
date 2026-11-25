@@ -3,12 +3,13 @@ Missing Person Identification System (MPIS) - Flask backend with MongoDB.
 Run:  python app.py      then open  http://localhost:5000
 Env:  MONGO_URI (default: mongodb://localhost:27017), MONGO_DB (default: mpis)
 """
-import os, re, json, uuid, datetime
+import os, re, json, uuid, datetime, traceback, logging
 from functools import wraps
 
 import numpy as np
 from bson.binary import Binary
 from flask import Flask, Response, request, jsonify, session, send_from_directory
+from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash
 from PIL import Image
@@ -127,13 +128,16 @@ def resolve_photo_path(photo_ref):
 
 def save_record_json(kind, record_id, payload):
     """Persist structured JSON record inside the separate missing_persons or sightings folder."""
-    target_dir = MISSING_DIR if kind == "case" else SIGHTING_DIR
-    prefix = "case" if kind == "case" else "sighting"
-    os.makedirs(target_dir, exist_ok=True)
-    clean_payload = clean_doc(payload)
-    file_stem = clean_payload.get("code") or f"{prefix}_{record_id}"
-    with open(os.path.join(target_dir, f"{file_stem}.json"), "w", encoding="utf-8") as f:
-        json.dump(clean_payload, f, indent=2)
+    try:
+        target_dir = MISSING_DIR if kind == "case" else SIGHTING_DIR
+        prefix = "case" if kind == "case" else "sighting"
+        os.makedirs(target_dir, exist_ok=True)
+        clean_payload = clean_doc(payload)
+        file_stem = clean_payload.get("code") or f"{prefix}_{record_id}"
+        with open(os.path.join(target_dir, f"{file_stem}.json"), "w", encoding="utf-8") as f:
+            json.dump(clean_payload, f, indent=2)
+    except Exception as e:
+        print(f"[warn] Failed to write record JSON file: {e}")
 
 def read_photo_bytes(photo_ref):
     folder, fname = resolve_photo_path(photo_ref)
@@ -151,8 +155,18 @@ def embed_photo(photo_ref):
         return get_engine().embed(full_path)
     except NoFaceError:
         if os.path.exists(full_path):
-            os.remove(full_path)
+            try:
+                os.remove(full_path)
+            except OSError:
+                pass
         raise ValueError("No face could be detected in that photo. Please upload a clearer, front-facing photo.")
+    except Exception as e:
+        if os.path.exists(full_path):
+            try:
+                os.remove(full_path)
+            except OSError:
+                pass
+        raise RuntimeError(f"Face processing error: {e}")
 
 def notify(match_id, case_doc, message, subject=None):
     """Send SMS (Twilio) and Email (SMTP) alerts and record delivery status in MongoDB."""
@@ -189,14 +203,20 @@ def create_matches(case_id=None, sighting_id=None):
     created = 0
     if case_id is not None:
         base_doc = d.missing_persons.find_one({"id": int(case_id)}, {"embedding": 1, "code": 1})
+        if not base_doc or not base_doc.get("embedding"):
+            return 0
         base = from_vec(base_doc["embedding"])
-        others = list(d.sightings.find({}, {"id": 1, "code": 1, "embedding": 1}))
+        others = list(d.sightings.find({"embedding": {"$exists": True, "$ne": None}}, {"id": 1, "code": 1, "embedding": 1}))
     else:
         base_doc = d.sightings.find_one({"id": int(sighting_id)}, {"embedding": 1, "code": 1})
+        if not base_doc or not base_doc.get("embedding"):
+            return 0
         base = from_vec(base_doc["embedding"])
-        others = list(d.missing_persons.find({"status": {"$ne": "Closed"}}, {"id": 1, "code": 1, "embedding": 1}))
+        others = list(d.missing_persons.find({"status": {"$ne": "Closed"}, "embedding": {"$exists": True, "$ne": None}}, {"id": 1, "code": 1, "embedding": 1}))
 
     for o in others:
+        if not o.get("embedding"):
+            continue
         dist = eng.distance(base, from_vec(o["embedding"]))
         if dist < eng.threshold:
             if case_id is not None:
@@ -237,7 +257,42 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return jsonify({"status": "ok"})
+    db_ok = False
+    db_error = None
+    try:
+        d = db()
+        d.command("ping")
+        db_ok = True
+    except Exception as e:
+        db_error = str(e)
+
+    ai_ok = False
+    ai_error = None
+    ai_model = None
+    try:
+        eng = get_engine()
+        ai_model = type(eng.model).__name__
+        ai_ok = True
+    except Exception as e:
+        ai_error = str(e)
+
+    is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT"))
+    status_code = 200 if (db_ok and ai_ok) else (503 if not db_ok else 200)
+    return jsonify({
+        "status": "healthy" if db_ok and ai_ok else ("degraded" if db_ok else "database_disconnected"),
+        "mongodb": {
+            "connected": db_ok,
+            "uri_set": bool(os.environ.get("MONGO_URI")),
+            "error": db_error,
+        },
+        "ai_engine": {
+            "ready": ai_ok,
+            "model": ai_model,
+            "error": ai_error,
+        },
+        "environment": "cloud" if is_cloud else "local",
+        "timestamp": now(),
+    }), status_code
 
 @app.post("/api/cases")
 def register_case():
@@ -261,7 +316,7 @@ def register_case():
         photo = save_photo(request.files.get("photo"), "missing_persons")
         emb = embed_photo(photo)
         photo_bytes = read_photo_bytes(photo)
-    except ValueError as e:
+    except (ValueError, RuntimeError) as e:
         return err(str(e))
     d = db()
     case_id = next_id(d, "missing_persons")
@@ -288,7 +343,10 @@ def register_case():
     }
     d.missing_persons.insert_one(doc)
     log(case_id, f"Case {case_code} registered")
-    create_matches(case_id=case_id)
+    try:
+        create_matches(case_id=case_id)
+    except Exception as e:
+        print(f"[warn] Match scanning encountered an issue: {e}")
     latest = d.missing_persons.find_one({"id": case_id})
     if latest:
         save_record_json("case", case_id, latest)
@@ -305,7 +363,7 @@ def report_sighting():
         photo = save_photo(request.files.get("photo"), "sightings")
         emb = embed_photo(photo)
         photo_bytes = read_photo_bytes(photo)
-    except ValueError as e:
+    except (ValueError, RuntimeError) as e:
         return err(str(e))
     d = db()
     sighting_id = next_id(d, "sightings")
@@ -325,7 +383,10 @@ def report_sighting():
     }
     d.sightings.insert_one(doc)
     save_record_json("sighting", sighting_id, doc)
-    create_matches(sighting_id=sighting_id)
+    try:
+        create_matches(sighting_id=sighting_id)
+    except Exception as e:
+        print(f"[warn] Match scanning encountered an issue: {e}")
     for m in d.matches.find({"sighting_id": sighting_id}, {"case_id": 1}):
         crow = d.missing_persons.find_one({"id": m["case_id"]})
         if crow:
@@ -589,6 +650,41 @@ def image(name):
 @app.errorhandler(413)
 def too_big(_):
     return err("Photo is too large (max 10 MB)", 413)
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # Pass through standard HTTP errors (like 404, 401, 403, 413)
+    if isinstance(e, HTTPException):
+        return jsonify({"error": e.description}), e.code
+
+    traceback.print_exc()
+
+    # Friendly, actionable messages for database errors
+    if isinstance(e, PyMongoError) or "mongo" in type(e).__name__.lower():
+        uri_val = os.environ.get("MONGO_URI", "").strip()
+        if not uri_val:
+            msg = (
+                "Database error: MONGO_URI environment variable is not configured. "
+                "Please add MONGO_URI in your Render Dashboard (Environment tab) "
+                "with your MongoDB Atlas connection string."
+            )
+        elif "<password>" in uri_val or "<db_password>" in uri_val:
+            msg = (
+                "Database error: MONGO_URI still contains the '<password>' placeholder. "
+                "Please replace it with your actual MongoDB Atlas password in Render Environment settings."
+            )
+        else:
+            msg = (
+                "Database connection error: Could not reach MongoDB. "
+                "Please check your MONGO_URI and ensure MongoDB Atlas -> Network Access -> "
+                "IP Access List has '0.0.0.0/0' (Allow access from anywhere) enabled."
+            )
+        return jsonify({"error": msg, "details": str(e)}), 503
+
+    # For other unhandled exceptions: return JSON so UI shows actual problem instead of raw HTTP 500
+    return jsonify({
+        "error": f"Server error ({type(e).__name__}): {str(e)}"
+    }), 500
 
 if __name__ == "__main__":
     try:

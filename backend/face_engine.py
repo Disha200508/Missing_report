@@ -58,6 +58,10 @@ def _extract_state_and_threshold(ckpt):
 
 class FaceEngine:
     def __init__(self):
+        try:
+            torch.set_num_threads(1)
+        except Exception:
+            pass
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.threshold = DEFAULT_THRESHOLD
         self._is_resnet_embedder = False
@@ -94,7 +98,9 @@ class FaceEngine:
         self.model.eval()
 
     def embed(self, image_path: str) -> np.ndarray:
-        face = self.mtcnn(Image.open(image_path).convert("RGB"))
+        with Image.open(image_path) as img:
+            rgb_img = img.convert("RGB")
+        face = self.mtcnn(rgb_img)
         if face is None:
             raise NoFaceError("No face detected in the photo")
         if self._is_resnet_embedder:
@@ -103,6 +109,7 @@ class FaceEngine:
             e = self.model(face.unsqueeze(0).to(self.device))
             if not self._is_resnet_embedder:
                 e = F.normalize(e, dim=1)
+        del face
         return e[0].cpu().numpy().astype("float32")
 
     def distance(self, a: np.ndarray, b: np.ndarray) -> float:

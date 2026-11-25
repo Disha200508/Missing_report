@@ -15,10 +15,11 @@ import datetime
 import sqlite3
 import numpy as np
 from pymongo import MongoClient, ReturnDocument, ASCENDING, DESCENDING
+from pymongo.errors import PyMongoError
 from werkzeug.security import generate_password_hash
 
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
-MONGO_DB_NAME = os.environ.get("MONGO_DB", "mpis")
+MONGO_URI = os.environ.get("MONGO_URI", "").strip()
+MONGO_DB_NAME = os.environ.get("MONGO_DB", "mpis").strip() or "mpis"
 
 _client = None
 _db = None
@@ -26,11 +27,42 @@ _db = None
 
 def get_mongo_db():
     global _client, _db
-    if _db is None:
-        _client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-        _client.admin.command("ping")
-        _db = _client[MONGO_DB_NAME]
-    return _db
+    if _db is not None:
+        return _db
+
+    uri = (os.environ.get("MONGO_URI") or "").strip()
+    db_name = (os.environ.get("MONGO_DB") or "").strip() or "mpis"
+
+    if not uri:
+        # If running in cloud (Render/Docker/custom port)
+        if os.environ.get("RENDER") or os.environ.get("PORT"):
+            raise PyMongoError(
+                "MONGO_URI environment variable is not configured. "
+                "Please add MONGO_URI in your Render Dashboard -> Environment "
+                "with your MongoDB Atlas connection string."
+            )
+        uri = "mongodb://localhost:27017"
+
+    if "<password>" in uri or "<db_password>" in uri:
+        raise PyMongoError(
+            "Your MONGO_URI contains the '<password>' placeholder. "
+            "Please replace '<password>' with your real MongoDB Atlas password in Render Environment settings."
+        )
+
+    try:
+        client = MongoClient(uri, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000)
+        client.admin.command("ping")
+        _client = client
+        _db = client[db_name]
+        return _db
+    except Exception as e:
+        # Clear globals so subsequent calls retry cleanly
+        _client = None
+        _db = None
+        raise PyMongoError(
+            f"Failed to connect to MongoDB ({type(e).__name__}): {e}. "
+            "Please check MONGO_URI in Render and verify MongoDB Atlas -> Network Access -> IP Access List has 0.0.0.0/0 enabled."
+        ) from e
 
 
 def next_id(mdb, name: str) -> int:
