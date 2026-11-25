@@ -5,6 +5,7 @@ All credentials are read from environment variables (or backend/.env).
 import os
 import re
 import json
+import datetime
 import smtplib
 from email.message import EmailMessage
 
@@ -82,31 +83,16 @@ def send_sms(phone: str, body: str) -> tuple[str, str | None]:
         from twilio.rest import Client
         client = Client(sid, token)
 
-        sent = False
-        last_exc = None
-
-        # Always try direct body text first (delivers directly during the active 24-hour WhatsApp session)
-        try:
+        if is_whatsapp and content_sid:
+            date_str = datetime.datetime.now().strftime("%b %d")
+            client.messages.create(
+                content_sid=content_sid,
+                content_variables=json.dumps({"1": date_str, "2": body[:80]}),
+                from_=sender,
+                to=dest,
+            )
+        else:
             client.messages.create(body=body, from_=sender, to=dest)
-            sent = True
-        except Exception as e:
-            last_exc = e
-
-        # If direct body was blocked and a template ContentSid is configured, try template
-        if not sent and is_whatsapp and content_sid:
-            try:
-                client.messages.create(
-                    content_sid=content_sid,
-                    content_variables=json.dumps({"1": "MPIS Case Update", "2": body[:120]}),
-                    from_=sender,
-                    to=dest,
-                )
-                sent = True
-            except Exception as e2:
-                last_exc = e2
-
-        if not sent and last_exc:
-            raise last_exc
 
         return "sent", None
     except Exception as exc:
