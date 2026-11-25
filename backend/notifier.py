@@ -4,6 +4,7 @@ All credentials are read from environment variables (or backend/.env).
 """
 import os
 import re
+import json
 import smtplib
 from email.message import EmailMessage
 
@@ -24,31 +25,78 @@ def normalize_phone(raw: str, default_country: str | None = None) -> str:
     return "+" + digits
 
 
+def send_sms_via_fast2sms(phone: str, body: str) -> tuple[str, str | None] | None:
+    """Send direct Indian SMS via Fast2SMS (requires FAST2SMS_API_KEY)."""
+    api_key = os.environ.get("FAST2SMS_API_KEY", "").strip()
+    if not api_key:
+        return None
+    digits = re.sub(r"\D", "", phone)[-10:]
+    if len(digits) != 10:
+        return "failed", "Invalid 10-digit Indian phone number for Fast2SMS."
+    try:
+        import requests
+        r = requests.get(
+            "https://www.fast2sms.com/dev/bulkV2",
+            headers={"authorization": api_key},
+            params={
+                "route": "q",
+                "message": body[:150],
+                "language": "english",
+                "flash": "0",
+                "numbers": digits,
+            },
+            timeout=15,
+        )
+        res = r.json()
+        if res.get("return") is True:
+            return "sent", None
+        return "failed", str(res.get("message") or res)
+    except Exception as exc:
+        return "failed", f"Fast2SMS error: {exc}"
+
+
 def send_sms(phone: str, body: str) -> tuple[str, str | None]:
-    """Send SMS via Twilio. Returns (status, error_message)."""
+    """Send SMS / WhatsApp alert. Supports Fast2SMS (India) and Twilio."""
+    # Fast2SMS check (simplest direct SMS to Indian mobile numbers)
+    fast2sms_res = send_sms_via_fast2sms(phone, body)
+    if fast2sms_res is not None:
+        return fast2sms_res
+
     sid = os.environ.get("TWILIO_SID", "").strip()
     token = os.environ.get("TWILIO_TOKEN", "").strip()
     from_num = os.environ.get("TWILIO_FROM", "").strip()
+    content_sid = os.environ.get("TWILIO_CONTENT_SID", "").strip()
+
     if not (sid and token and from_num):
-        return "not_configured", "Set TWILIO_SID, TWILIO_TOKEN, and TWILIO_FROM to send SMS."
+        return "not_configured", "Set TWILIO_SID, TWILIO_TOKEN, and TWILIO_FROM (or FAST2SMS_API_KEY) to send SMS."
 
     to_num = normalize_phone(phone)
     if not to_num:
         return "failed", "Invalid phone number."
 
-    # Support WhatsApp messages (which bypass India TRAI DLT trial SMS template restrictions)
     is_whatsapp = from_num.startswith("whatsapp:") or os.environ.get("TWILIO_WHATSAPP", "").lower() in ("1", "true")
     dest = f"whatsapp:{to_num}" if (is_whatsapp and not to_num.startswith("whatsapp:")) else to_num
     sender = from_num if from_num.startswith("whatsapp:") else (f"whatsapp:{from_num}" if is_whatsapp else from_num)
 
     try:
         from twilio.rest import Client
-        Client(sid, token).messages.create(body=body, from_=sender, to=dest)
+        client = Client(sid, token)
+        if is_whatsapp and content_sid:
+            client.messages.create(
+                content_sid=content_sid,
+                content_variables=json.dumps({"1": "MPIS Case Update", "2": body[:120]}),
+                from_=sender,
+                to=dest,
+            )
+        else:
+            client.messages.create(body=body, from_=sender, to=dest)
         return "sent", None
     except Exception as exc:
         err_msg = str(exc)
-        if "Invalid template name" in err_msg or "predefined SMS templates" in err_msg:
-            err_msg += " (India TRAI regulation requires DLT templates for SMS. To deliver free without templates, use Twilio WhatsApp Sandbox by setting TWILIO_FROM=whatsapp:+14155238886)."
+        if "ContentSid Required" in err_msg:
+            err_msg += " (Twilio requires you to first send 'join <keyword>' from your WhatsApp to +14155238886 to open the 24hr session, or use FAST2SMS_API_KEY for direct SMS)."
+        elif "Invalid template name" in err_msg or "predefined SMS templates" in err_msg:
+            err_msg += " (India TRAI DLT blocks custom text on trial SMS. Use FAST2SMS_API_KEY from fast2sms.com for direct Indian SMS)."
         return "failed", err_msg
 
 
