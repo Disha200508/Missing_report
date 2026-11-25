@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+    <meta charset='utf-8'>
+    <title>Missing Person Identification System (MPIS) - Project Report</title>
+    <!--[if gte mso 9]>
+    <xml>
+        <w:WordDocument>
+            <w:View>Print</w:View>
+            <w:Zoom>100</w:Zoom>
+            <w:DoNotOptimizeForBrowser/>
+        </w:WordDocument>
+    </xml>
+    <![endif]-->
+    <style>
+        @page Section1 {
+            size: 595.3pt 841.9pt; /* A4 */
+            margin: 54.0pt 54.0pt 54.0pt 54.0pt;
+            mso-header-margin: 35.4pt;
+            mso-footer-margin: 35.4pt;
+            mso-paper-source: 0;
+        }
+        div.Section1 {
+            page: Section1;
+        }
+        body {
+            font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #1e293b;
+        }
+        h1 {
+            font-size: 22pt;
+            color: #0f172a;
+            border-bottom: 2.5pt solid #2563eb;
+            padding-bottom: 4pt;
+            margin-top: 12pt;
+            margin-bottom: 8pt;
+        }
+        h2 {
+            font-size: 16pt;
+            color: #1e3a8a;
+            border-bottom: 1pt solid #cbd5e1;
+            padding-bottom: 3pt;
+            margin-top: 18pt;
+            margin-bottom: 8pt;
+        }
+        h3 {
+            font-size: 12.5pt;
+            color: #1e40af;
+            margin-top: 12pt;
+            margin-bottom: 4pt;
+        }
+        p {
+            margin-top: 4pt;
+            margin-bottom: 6pt;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10pt;
+            margin-bottom: 14pt;
+            font-size: 10pt;
+        }
+        th, td {
+            border: 1pt solid #94a3b8;
+            padding: 6pt 8pt;
+            text-align: left;
+            vertical-align: top;
+        }
+        th {
+            background-color: #f1f5f9;
+            color: #0f172a;
+            font-weight: bold;
+        }
+        tr:nth-child(even) td {
+            background-color: #f8fafc;
+        }
+        pre {
+            background-color: #f8fafc;
+            border: 1pt solid #cbd5e1;
+            padding: 8pt;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 9.5pt;
+            margin-top: 6pt;
+            margin-bottom: 8pt;
+            white-space: pre-wrap;
+        }
+        code {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 9.5pt;
+            background-color: #f1f5f9;
+            padding: 2pt 4pt;
+        }
+        blockquote {
+            border-left: 3pt solid #3b82f6;
+            padding-left: 10pt;
+            margin-left: 0;
+            color: #475569;
+            font-style: italic;
+        }
+        hr {
+            border: none;
+            border-top: 1pt solid #cbd5e1;
+            margin: 16pt 0;
+        }
+        .diagram-box {
+            background-color: #eff6ff;
+            border: 1pt solid #bfdbfe;
+            padding: 10pt;
+            margin: 12pt 0;
+        }
+        .diagram-box strong {
+            color: #1d4ed8;
+            display: block;
+            margin-bottom: 4pt;
+        }
+    </style>
+</head>
+<body>
+    <div class="Section1">
+        <h1>Missing Person Identification System (MPIS)</h1>
+<h2>Comprehensive Technical Project Report &amp; System Documentation</h2>
+<p><strong>Project Name:</strong> Missing Person Identification System (MPIS)<br />
+<strong>Team / Organization:</strong> Code4Cause · Govt. Women's Institute of Technology · Major Project 2026<br />
+<strong>Repository:</strong> <a href="https://github.com/Disha200508/Missing_report">GitHub: Disha200508/Missing_report</a><br />
+<strong>Live Application URL:</strong> <a href="https://missing-report.onrender.com">https://missing-report.onrender.com</a><br />
+<strong>Timezone Configured:</strong> Indian Standard Time (IST / Asia/Kolkata, UTC+5:30)</p>
+<hr />
+<h2>1. Executive Summary</h2>
+<p>The <strong>Missing Person Identification System (MPIS)</strong> is an end-to-end AI-powered web platform engineered to assist families, humanitarian organizations, and law enforcement agencies in locating missing individuals. </p>
+<p>The platform allows families to register missing person cases and allows the public to report sightings with photos and location details. Whenever a photo is submitted, an integrated Computer Vision pipeline detects faces, computes a 512-dimensional biometric embedding using a custom-trained Deep Learning model, and cross-compares it across all stored records. When a high-confidence match is flagged, it is routed to authorized human staff for manual verification. Upon verification, automated multi-channel alerts (SMS, WhatsApp, and Email) are dispatched immediately to the family and designated authorities.</p>
+<div class="diagram-box"><strong>System Architecture Flow:</strong><pre>A["Public / Family"] -->|"Photo & Details"| B["Frontend UI"]
+B -->|"REST API (HTTPS)"| C["Flask Backend"]
+C -->|"Face Detection"| D["MTCNN"]
+D -->|"Normalized Face"| E["Custom ResNet-18 Embedder"]
+E -->|"512-D Vector"| F["Cosine Matching Engine"]
+F -->|"Match Flagged"| G["Staff Admin Portal"]
+G -->|"Verify & Confirm"| H["Notification Dispatcher"]
+H -->|"Email"| I["Resend / SMTP (Gmail)"]
+H -->|"WhatsApp / SMS"| J["Twilio / Fast2SMS"]
+C <-->|"Store & Query"| K[("MongoDB Atlas Cloud")]</pre></div>
+
+<hr />
+<h2>2. Complete Technology Stack</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Layer</th>
+<th style="text-align: left;">Technologies &amp; Libraries</th>
+<th style="text-align: left;">Purpose &amp; Responsibilities</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Artificial Intelligence &amp; CV</strong></td>
+<td style="text-align: left;"><code>PyTorch 2.x (CPU)</code><br><code>torchvision</code><br><code>facenet-pytorch (MTCNN)</code><br><code>Pillow (PIL)</code><br><code>pillow-heif</code><br><code>NumPy</code></td>
+<td style="text-align: left;">Face detection, bounding-box alignment (160×160), 512-dimensional deep biometric feature extraction (<code>face_model.pt</code>), cosine distance calculation, and image normalization.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Backend &amp; Web Framework</strong></td>
+<td style="text-align: left;"><code>Python 3.10</code><br><code>Flask 3.x</code><br><code>Gunicorn 21.x</code><br><code>Werkzeug</code><br><code>python-dotenv</code><br><code>zoneinfo</code> / <code>tzdata</code></td>
+<td style="text-align: left;">RESTful API endpoints, request validation, authentication, session security, proxy header handling, error routing, and IST timezone scheduling.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Database &amp; Cloud Storage</strong></td>
+<td style="text-align: left;"><code>MongoDB Atlas (M0 Cloud)</code><br><code>PyMongo 4.x</code><br><code>dnspython</code><br><code>BSON Binary</code></td>
+<td style="text-align: left;">Scalable NoSQL cloud document storage, atomic sequential ID counters (<code>MP-</code>, <code>SG-</code>), binary photo backup (<code>photo_bytes</code>), match history, and audit trails.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Notification Infrastructure</strong></td>
+<td style="text-align: left;"><code>Twilio API (Twilio Python SDK)</code><br><code>Twilio WhatsApp Sandbox</code><br><code>Resend REST API</code><br><code>smtplib</code> &amp; <code>email.message</code><br><code>Fast2SMS API</code></td>
+<td style="text-align: left;">Automated dual-channel family alerts: Email delivery over HTTPS (port 443), WhatsApp messaging, and direct Indian SIM SMS routing.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Frontend &amp; UI / UX</strong></td>
+<td style="text-align: left;">Vanilla JavaScript (ES6+)<br>React 18 / JSX<br>HTML5 / CSS3<br>Vite</td>
+<td style="text-align: left;">Responsive Single Page Application (SPA), real-time photo preview, full-screen lightbox image zoom, live ID generation previews, and staff review dashboard.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>DevOps &amp; Containerization</strong></td>
+<td style="text-align: left;"><code>Docker (python:3.10-slim)</code><br><code>Render Cloud Platform</code><br><code>Git &amp; GitHub</code></td>
+<td style="text-align: left;">Ephemeral containerized hosting, multi-stage pip dependency caching, environment variable secret management, and continuous deployment (<code>main</code> branch).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>3. Deep Learning &amp; Computer Vision Architecture</h2>
+<p>The core AI engine (<code>backend/face_engine.py</code>) implements a two-stage biometric verification pipeline:</p>
+<div class="diagram-box"><strong>System Architecture Flow:</strong><pre>Raw["Raw Uploaded Photo (Any Format)"] --> Pre["Format Conversion & Alpha-to-White Canvas"]
+Pre --> MTCNN["MTCNN Face Detector & Aligner (160x160, margin=20)"]
+MTCNN --> Crop["Aligned Face Tensor"]
+Crop --> Norm["ImageNet Normalization (Mean & Std)"]
+Norm --> ResNet["ResNet-18 Backbone (weights=None)"]
+ResNet --> Head["Projection Head: Dropout(0.2) -> Linear(512, 512) -> BatchNorm1d(512)"]
+Head --> L2["L2 Normalization: F.normalize(dim=1)"]
+L2 --> Vec["512-Dimensional Unit Embedding Vector"]
+Vec --> Dot["Cosine Distance Metric: 1.0 - dot(A, B)"]
+Dot --> Match["Confidence Score: 0 - 100%"]</pre></div>
+
+<h3>3.1 Face Alignment (MTCNN)</h3>
+<ul>
+<li><strong>Model:</strong> Multi-task Cascaded Convolutional Networks (<code>facenet_pytorch.MTCNN</code>).</li>
+<li><strong>Configuration:</strong> <code>image_size=160</code>, <code>margin=20</code>, <code>device="cpu"</code>, <code>post_process=False</code>.</li>
+<li><strong>Behavior:</strong> Identifies facial landmarks (eyes, nose, mouth corners), aligns the face horizontally, crops the region with padding, and returns a 3×160×160 tensor.</li>
+<li><strong>Error Handling:</strong> If no face is detected or if an image is blurred, <code>NoFaceError</code> is raised, triggering an immediate user-friendly HTTP 400 prompt asking for a clearer photo.</li>
+</ul>
+<h3>3.2 Custom Feature Embedder (<code>face_model.pt</code>)</h3>
+<ul>
+<li><strong>Architecture:</strong> <code>torchvision.models.resnet18</code> backbone with custom projection head:<br />
+<code>python
+  self.backbone.fc = nn.Identity()
+  self.head = nn.Sequential(
+      nn.Dropout(0.2),
+      nn.Linear(512, 512),
+      nn.BatchNorm1d(512),
+  )</code></li>
+<li><strong>Checkpoint Loading:</strong> Dynamically detects and resolves <code>face_model.pt</code> from root or backend directory. Supports both direct state dicts and training checkpoints containing thresholds.</li>
+<li><strong>Memory &amp; Thread Optimization:</strong> Configured with <code>torch.set_num_threads(1)</code> and explicit tensor deletion (<code>del face</code>) to ensure the container operates within Render's 512MB RAM free tier without worker timeouts.</li>
+</ul>
+<h3>3.3 Matching Metric &amp; Confidence Scoring</h3>
+<ul>
+<li>Embeddings are L2-normalized unit vectors ($|v|_2 = 1$).</li>
+<li><strong>Cosine Distance:</strong> $D(A, B) = 1.0 - (A \cdot B)$.</li>
+<li><strong>Confidence Formula:</strong><br />
+  $$\text{Score} = \text{round}\left(\max\left(0.0, \min\left(1.0, 1 - \frac{D}{2 \cdot \theta}\right)\right) \times 100\right)$$<br />
+<em>(where $\theta = 0.450$ is the operational verification threshold).</em></li>
+</ul>
+<hr />
+<h2>4. Multi-Format Image Handling</h2>
+<p>To ensure public users can upload photos from any mobile device, camera, or browser:<br />
+* <strong>Supported Input Formats:</strong> <code>.jpg</code>, <code>.jpeg</code>, <code>.png</code>, <code>.webp</code>, <code>.bmp</code>, <code>.gif</code>, <code>.tiff</code>, <code>.tif</code>, <code>.jfif</code> (WhatsApp downloads), <code>.avif</code>, <code>.heic</code>, and <code>.heif</code> (iPhone camera format).<br />
+* <strong>HEIC Support:</strong> Integrated <code>pillow-heif</code> to register native Apple HEIC decoders dynamically.<br />
+* <strong>Transparency Handling:</strong> Automatically detects transparent alpha channels (<code>RGBA</code>, <code>LA</code>, <code>P</code>) and composites images over a solid white canvas before conversion, preventing black-box transparency artifacts.<br />
+* <strong>Standardized Storage:</strong> All images are resized to a maximum bounding box of 1600×1600 via high-quality <code>LANCZOS</code> resampling and saved as 92% quality clean JPEGs (with all EXIF GPS metadata stripped for privacy).<br />
+* <strong>Interactive Lightbox (UI):</strong> Built an image zoom modal (<code>data-zoom</code>) allowing staff to click any photo thumbnail to inspect facial features at 100% full-screen resolution.</p>
+<hr />
+<h2>5. Database Architecture &amp; MongoDB Cloud Integration</h2>
+<p>The persistence layer (<code>backend/mongo_store.py</code>) connects to MongoDB Atlas:</p>
+<div class="diagram-box"><strong>System Architecture Flow:</strong><pre>MISSING_PERSONS ||--o{ MATCHES : "matched with"
+SIGHTINGS ||--o{ MATCHES : "compared against"
+MATCHES ||--o{ NOTIFICATIONS : "triggers"
+MISSING_PERSONS ||--o{ HISTORY : "logs"
+
+MISSING_PERSONS {
+int id PK
+string code "MP-2026-XXXX"
+string name
+int age
+string gender
+string last_seen_location
+string contact_phone
+string contact_email
+binData photo_bytes
+array embedding
+string status
+string created_at
+}
+
+SIGHTINGS {
+int id PK
+string code "SG-2026-XXXX"
+string location
+string description
+string reporter_name
+string reporter_contact
+binData photo_bytes
+array embedding
+string created_at
+}
+
+MATCHES {
+int id PK
+int case_id FK
+int sighting_id FK
+float distance
+int score
+string status "pending | verified | rejected"
+string reviewed_by
+string reviewed_at
+}
+
+NOTIFICATIONS {
+int id PK
+int match_id FK
+string channel "Email | WhatsApp | SMS"
+string recipient
+string message
+string status "sent | failed | not_configured"
+string error
+string created_at
+}</pre></div>
+
+<h3>Key Architectural Highlights:</h3>
+<ol>
+<li><strong>Human-Readable IDs:</strong> Atomic counters generate distinct identifiers:<br />
+   - Missing Person Cases: <code>MP-YYYY-XXXX</code> (e.g. <code>MP-2026-0001</code>)<br />
+   - Sighting Reports: <code>SG-YYYY-XXXX</code> (e.g. <code>SG-2026-0001</code>)</li>
+<li><strong>Dual-Layer Persistence:</strong><br />
+   - Filesystem: Categorized folders <code>backend/data/missing_persons/</code> and <code>backend/data/sightings/</code> with <code>&lt;code &gt;.json</code> metadata files.<br />
+   - Cloud MongoDB: In addition to filesystem storage, raw image binary is saved in MongoDB (<code>photo_bytes</code>), ensuring uploaded photos persist even across ephemeral container rebuilds.</li>
+<li><strong>Indian Standard Time (IST):</strong> Centralized <code>now()</code> helper uses Python's <code>zoneinfo.ZoneInfo("Asia/Kolkata")</code> with fallback to <code>UTC+5:30</code>, ensuring all audit trails match the user's local wall clock.</li>
+</ol>
+<hr />
+<h2>6. Multi-Channel Notification Infrastructure</h2>
+<p>When authorized staff confirm a match by clicking <strong>Verify</strong>, the notification engine (<code>backend/notifier.py</code>) dispatches simultaneous alerts:</p>
+<h3>6.1 Email Channel (Resend &amp; Gmail SMTP)</h3>
+<ul>
+<li><strong>HTTPS Resend Integration:</strong> Bypasses cloud port blocks (Render blocks SMTP ports 25, 465, and 587 on free instances) by transmitting alerts over HTTPS port 443 to <code>https://api.resend.com/emails</code>.</li>
+<li><strong>IPv4 SMTP Fallback:</strong> Implemented explicit IPv4 socket binding (<code>source_address=("0.0.0.0", 0)</code>) to resolve <code>[Errno 101] Network is unreachable</code> errors caused by IPv6 routing inside cloud containers.</li>
+</ul>
+<h3>6.2 Mobile Messaging (Twilio WhatsApp &amp; Fast2SMS)</h3>
+<ul>
+<li><strong>Twilio WhatsApp Integration:</strong> Routes messages through Twilio's WhatsApp Sandbox (<code>whatsapp:+17372508034</code>), overcoming Indian TRAI / DLT regulatory SMS template locks.</li>
+<li><strong>Template &amp; ContentSid Automation:</strong> Configured to populate approved templates with dynamic case variables:<br />
+<code>json
+  {"1": "Nov 25", "2": "MPIS Update: Sighting confirmed for Abc (MP-2026-0001)"}</code></li>
+<li><strong>Incoming WhatsApp Webhook:</strong> Implemented <code>/api/whatsapp-reply</code> returning TwiML XML so inbound inquiries receive automated assistance instructions.</li>
+<li><strong>Fast2SMS Gateway:</strong> Integrated native Indian carrier SMS dispatching via Fast2SMS developer APIs for direct delivery to Indian SIM cards (+91).</li>
+</ul>
+<h3>6.3 Dynamic Personalization &amp; Custom Admin Prompt</h3>
+<ul>
+<li>Before dispatch, staff receive an interactive prompt allowing them to review and edit the personalized alert message:<blockquote>
+<p><em>"Dear [Contact Name], MPIS Update: A possible sighting of [Missing Person] ([Case Code]) has been verified near [Location]. An officer will contact you shortly."</em></p>
+</blockquote>
+</li>
+</ul>
+<hr />
+<h2>7. Security &amp; Privacy Safeguards</h2>
+<ol>
+<li><strong>Public Privacy Protection:</strong> Public users submitting cases or sightings are <strong>never</strong> shown photos, names, or match scores of other individuals. Match alerts are strictly restricted to authenticated staff.</li>
+<li><strong>Role-Based Authentication:</strong> Staff dashboard routes (<code>/api/admin/*</code>) are protected by <code>@admin_required</code> session decorators using secure <code>PBKDF2-SHA256</code> password hashing.</li>
+<li><strong>Session Cookie Hardening:</strong> <code>HTTPOnly</code>, <code>SameSite=Lax</code>, and <code>ProxyFix</code> middleware headers enabled.</li>
+<li><strong>Input Sanitization &amp; Limits:</strong> Uploaded image payload capped at 10 MB (<code>MAX_CONTENT_LENGTH</code>), text fields sanitized and truncated, and phone/email validated using regex patterns.</li>
+</ol>
+<hr />
+<h2>8. Summary of Problems Solved</h2>
+<div class="diagram-box"><strong>System Architecture Flow:</strong><pre>E1["Docker Build: flit_core & typing-extensions pip metadata error"]
+E2["Runtime: Unhandled HTTP 500 error on form submission"]
+E3["Cloud Storage: Ephemeral container wiped photos on restart"]
+E4["Email Delivery: [Errno 101] Network is unreachable (port block)"]
+E5["SMS Delivery: TRAI DLT template block on Indian numbers"]
+E6["Timezone Mismatch: Server recorded 17:20 UTC instead of 22:50 IST"]
+
+S1["pip upgrade & --extra-index-url for PyTorch wheels"]
+S2["Global JSON error handler & live /api/health diagnostics"]
+S3["Binary photo backup (photo_bytes) directly inside MongoDB Atlas"]
+S4["HTTPS Resend API (Port 443) & IPv4 socket binding"]
+S5["Twilio WhatsApp Sandbox + ContentSid + Fast2SMS integration"]
+S6["zoneinfo.ZoneInfo('Asia/Kolkata') & TZ=Asia/Kolkata in Docker"]
+
+E1 --> S1
+E2 --> S2
+E3 --> S3
+E4 --> S4
+E5 --> S5
+E6 --> S6</pre></div>
+
+<hr />
+<h2>9. Verification &amp; Live Status Check</h2>
+<ul>
+<li><strong>Backend Health Endpoint:</strong><br />
+<code>bash
+  curl -s https://missing-report.onrender.com/api/health</code><br />
+<strong>Response:</strong><br />
+<code>json
+  {
+    "status": "healthy",
+    "mongodb": {
+      "connected": true,
+      "uri_set": true,
+      "error": null
+    },
+    "ai_engine": {
+      "ready": true,
+      "model": "FaceEmbedder",
+      "error": null
+    },
+    "environment": "cloud",
+    "timestamp": "2026-11-25 23:18:00"
+  }</code></li>
+<li><strong>Notification Delivery Logs:</strong></li>
+<li><code>[notify:Email:sent] -&gt; dishadeshwal0508@gmail.com</code> (Verified Delivered)</li>
+<li><code>[notify:SMS:sent] -&gt; whatsapp:+917618103393</code> (Message SID <code>MM915d69aeeb029ae1576b78cfe7a8bf50</code> Verified Queued/Delivered)</li>
+</ul>
+<hr />
+<p><em>Report generated and authenticated for the MPIS Project Repository (<code>main</code> branch).</em></p>
+    </div>
+</body>
+</html>
