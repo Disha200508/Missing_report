@@ -78,7 +78,13 @@ def init_db():
     _initialized = True
 
 def now():
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        import zoneinfo
+        tz = zoneinfo.ZoneInfo(os.environ.get("TZ") or "Asia/Kolkata")
+        return datetime.datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        ist = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+        return datetime.datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S")
 
 def log(case_id, event, actor="system"):
     d = db()
