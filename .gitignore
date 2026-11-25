@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets & environment
+.env
+backend/.env
+
+# Local databases & uploaded personal photos/data
+backend/mpis.db
+backend/uploads/
+backend/data/
+
+# Node / Frontend builds
+node_modules/
+dist/
+.vite/
+.DS_Store
+Thumbs.db
