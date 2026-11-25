@@ -35,12 +35,21 @@ def send_sms(phone: str, body: str) -> tuple[str, str | None]:
     to_num = normalize_phone(phone)
     if not to_num:
         return "failed", "Invalid phone number."
+
+    # Support WhatsApp messages (which bypass India TRAI DLT trial SMS template restrictions)
+    is_whatsapp = from_num.startswith("whatsapp:") or os.environ.get("TWILIO_WHATSAPP", "").lower() in ("1", "true")
+    dest = f"whatsapp:{to_num}" if (is_whatsapp and not to_num.startswith("whatsapp:")) else to_num
+    sender = from_num if from_num.startswith("whatsapp:") else (f"whatsapp:{from_num}" if is_whatsapp else from_num)
+
     try:
         from twilio.rest import Client
-        Client(sid, token).messages.create(body=body, from_=from_num, to=to_num)
+        Client(sid, token).messages.create(body=body, from_=sender, to=dest)
         return "sent", None
     except Exception as exc:
-        return "failed", str(exc)
+        err_msg = str(exc)
+        if "Invalid template name" in err_msg or "predefined SMS templates" in err_msg:
+            err_msg += " (India TRAI regulation requires DLT templates for SMS. To deliver free without templates, use Twilio WhatsApp Sandbox by setting TWILIO_FROM=whatsapp:+14155238886)."
+        return "failed", err_msg
 
 
 def send_email_via_api(to_addr: str, subject: str, body: str) -> tuple[str, str | None] | None:
