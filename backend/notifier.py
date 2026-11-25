@@ -43,8 +43,59 @@ def send_sms(phone: str, body: str) -> tuple[str, str | None]:
         return "failed", str(exc)
 
 
+def send_email_via_api(to_addr: str, subject: str, body: str) -> tuple[str, str | None] | None:
+    """Send email via HTTP API (Resend or SendGrid) over port 443 to bypass cloud SMTP port blocks."""
+    resend_key = os.environ.get("RESEND_API_KEY", "").strip()
+    if resend_key:
+        try:
+            import requests
+            sender = os.environ.get("RESEND_FROM", "").strip() or "MPIS Alerts <onboarding@resend.dev>"
+            r = requests.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"},
+                json={"from": sender, "to": [to_addr.strip()], "subject": subject, "text": body},
+                timeout=15,
+            )
+            if r.status_code in (200, 201):
+                return "sent", None
+            return "failed", f"Resend API error ({r.status_code}): {r.text}"
+        except Exception as exc:
+            return "failed", f"Resend error: {exc}"
+
+    sendgrid_key = os.environ.get("SENDGRID_API_KEY", "").strip()
+    if sendgrid_key:
+        try:
+            import requests
+            sender = os.environ.get("SENDGRID_FROM", "").strip() or os.environ.get("SMTP_FROM", "").strip()
+            if not sender:
+                return "not_configured", "Set SENDGRID_FROM with your verified sender email address."
+            r = requests.post(
+                "https://api.sendgrid.com/v3/mail/send",
+                headers={"Authorization": f"Bearer {sendgrid_key}", "Content-Type": "application/json"},
+                json={
+                    "personalizations": [{"to": [{"email": to_addr.strip()}]}],
+                    "from": {"email": sender},
+                    "subject": subject,
+                    "content": [{"type": "text/plain", "value": body}],
+                },
+                timeout=15,
+            )
+            if r.status_code in (200, 202):
+                return "sent", None
+            return "failed", f"SendGrid error ({r.status_code}): {r.text}"
+        except Exception as exc:
+            return "failed", f"SendGrid error: {exc}"
+
+    return None
+
+
 def send_email(to_addr: str, subject: str, body: str) -> tuple[str, str | None]:
-    """Send Email via SMTP (STARTTLS on 587 or SSL on 465). Returns (status, error_message)."""
+    """Send Email via HTTP API or SMTP (forcing IPv4). Returns (status, error_message)."""
+    # Prefer HTTP API (Resend / SendGrid) if configured, as cloud providers like Render block raw SMTP ports
+    api_result = send_email_via_api(to_addr, subject, body)
+    if api_result is not None:
+        return api_result
+
     host = os.environ.get("SMTP_HOST", "").strip()
     port = int(os.environ.get("SMTP_PORT", "587") or 587)
     user = os.environ.get("SMTP_USER", "").strip()
@@ -52,7 +103,7 @@ def send_email(to_addr: str, subject: str, body: str) -> tuple[str, str | None]:
     sender = os.environ.get("SMTP_FROM", "").strip() or user
 
     if not (host and user and password and sender):
-        return "not_configured", "Set SMTP_HOST, SMTP_USER, and SMTP_PASS to send emails."
+        return "not_configured", "Set SMTP_HOST, SMTP_USER, and SMTP_PASS (or RESEND_API_KEY) to send emails."
 
     msg = EmailMessage()
     msg["Subject"] = subject
@@ -60,13 +111,16 @@ def send_email(to_addr: str, subject: str, body: str) -> tuple[str, str | None]:
     msg["To"] = to_addr.strip()
     msg.set_content(body)
 
+    # Force IPv4 socket binding to avoid [Errno 101] Network is unreachable on cloud IPv6 containers
+    source_addr = ("0.0.0.0", 0)
+
     try:
         if port == 465:
-            with smtplib.SMTP_SSL(host, port, timeout=15) as server:
+            with smtplib.SMTP_SSL(host, port, timeout=15, source_address=source_addr) as server:
                 server.login(user, password)
                 server.send_message(msg)
         else:
-            with smtplib.SMTP(host, port, timeout=15) as server:
+            with smtplib.SMTP(host, port, timeout=15, source_address=source_addr) as server:
                 server.ehlo()
                 server.starttls()
                 server.ehlo()
@@ -74,4 +128,7 @@ def send_email(to_addr: str, subject: str, body: str) -> tuple[str, str | None]:
                 server.send_message(msg)
         return "sent", None
     except Exception as exc:
-        return "failed", str(exc)
+        err_msg = str(exc)
+        if "Network is unreachable" in err_msg or "101" in err_msg or "timed out" in err_msg.lower():
+            err_msg += " (Note: Render free tier blocks outbound SMTP ports. To bypass, add RESEND_API_KEY from resend.com in Render Environment)."
+        return "failed", err_msg
