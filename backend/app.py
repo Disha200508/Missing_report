@@ -7,7 +7,9 @@ import os, re, json, uuid, datetime
 from functools import wraps
 
 import numpy as np
-from flask import Flask, request, jsonify, session, send_from_directory
+from bson.binary import Binary
+from flask import Flask, Response, request, jsonify, session, send_from_directory
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash
 from PIL import Image
 from pymongo.errors import DuplicateKeyError, PyMongoError
@@ -23,7 +25,7 @@ from notifier import send_sms, send_email
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(HERE, "uploads")
-DATA_DIR = os.path.join(HERE, "data")
+DATA_DIR = os.environ.get("DATA_DIR") or os.path.join(HERE, "data")
 MISSING_DIR = os.path.join(DATA_DIR, "missing_persons")
 SIGHTING_DIR = os.path.join(DATA_DIR, "sightings")
 SQLITE_PATH = os.path.join(HERE, "mpis.db")
@@ -33,9 +35,11 @@ os.makedirs(MISSING_DIR, exist_ok=True)
 os.makedirs(SIGHTING_DIR, exist_ok=True)
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE", "").lower() in ("1", "true", "yes")
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-in-production")
 
 CASE_STATUSES = ["Active", "Under Investigation", "Probable Match Found", "Verified", "Closed"]
@@ -130,6 +134,11 @@ def save_record_json(kind, record_id, payload):
     file_stem = clean_payload.get("code") or f"{prefix}_{record_id}"
     with open(os.path.join(target_dir, f"{file_stem}.json"), "w", encoding="utf-8") as f:
         json.dump(clean_payload, f, indent=2)
+
+def read_photo_bytes(photo_ref):
+    folder, fname = resolve_photo_path(photo_ref)
+    with open(os.path.join(folder, fname), "rb") as f:
+        return Binary(f.read())
 
 def to_vec(vec):   return np.asarray(vec, dtype="float32").tolist()
 def from_vec(arr): return np.asarray(arr, dtype="float32")
@@ -226,6 +235,10 @@ def create_matches(case_id=None, sighting_id=None):
 def index():
     return send_from_directory(FRONTEND_DIR, "index.html")
 
+@app.get("/api/health")
+def health():
+    return jsonify({"status": "ok"})
+
 @app.post("/api/cases")
 def register_case():
     f = request.form
@@ -247,6 +260,7 @@ def register_case():
     try:
         photo = save_photo(request.files.get("photo"), "missing_persons")
         emb = embed_photo(photo)
+        photo_bytes = read_photo_bytes(photo)
     except ValueError as e:
         return err(str(e))
     d = db()
@@ -266,6 +280,7 @@ def register_case():
         "contact_phone": phone,
         "contact_email": email,
         "photo": photo,
+        "photo_bytes": photo_bytes,
         "embedding": to_vec(emb),
         "status": "Active",
         "created_at": ts,
@@ -289,6 +304,7 @@ def report_sighting():
     try:
         photo = save_photo(request.files.get("photo"), "sightings")
         emb = embed_photo(photo)
+        photo_bytes = read_photo_bytes(photo)
     except ValueError as e:
         return err(str(e))
     d = db()
@@ -303,6 +319,7 @@ def report_sighting():
         "reporter_name": clean(f.get("reporter_name"), 100),
         "reporter_contact": clean(f.get("reporter_contact"), 120),
         "photo": photo,
+        "photo_bytes": photo_bytes,
         "embedding": to_vec(emb),
         "created_at": ts,
     }
@@ -398,14 +415,14 @@ def admin_cases():
         flt["$or"] = ors
     if status:
         flt["status"] = status
-    rows = db().missing_persons.find(flt, {"_id": 0, "embedding": 0}).sort("id", -1).limit(300)
+    rows = db().missing_persons.find(flt, {"_id": 0, "embedding": 0, "photo_bytes": 0}).sort("id", -1).limit(300)
     return jsonify(list(rows))
 
 @app.get("/api/admin/cases/<int:case_id>")
 @admin_required
 def admin_case(case_id):
     d = db()
-    r = d.missing_persons.find_one({"id": case_id}, {"_id": 0, "embedding": 0})
+    r = d.missing_persons.find_one({"id": case_id}, {"_id": 0, "embedding": 0, "photo_bytes": 0})
     if not r: return err("Not found", 404)
     hist = list(d.history.find({"case_id": case_id}, {"_id": 0, "event": 1, "actor": 1, "created_at": 1}).sort("id", 1))
     return jsonify({"case": r, "history": hist})
@@ -432,8 +449,8 @@ def admin_matches():
         return jsonify([])
     case_ids = list({m["case_id"] for m in m_rows})
     sighting_ids = list({m["sighting_id"] for m in m_rows})
-    cases = {c["id"]: c for c in d.missing_persons.find({"id": {"$in": case_ids}}, {"_id": 0, "embedding": 0})}
-    sightings = {s["id"]: s for s in d.sightings.find({"id": {"$in": sighting_ids}}, {"_id": 0, "embedding": 0})}
+    cases = {c["id"]: c for c in d.missing_persons.find({"id": {"$in": case_ids}}, {"_id": 0, "embedding": 0, "photo_bytes": 0})}
+    sightings = {s["id"]: s for s in d.sightings.find({"id": {"$in": sighting_ids}}, {"_id": 0, "embedding": 0, "photo_bytes": 0})}
     out = []
     for m in m_rows:
         c = cases.get(m["case_id"])
@@ -457,8 +474,8 @@ def admin_match_detail(mid):
     d = db()
     m = d.matches.find_one({"id": mid}, {"_id": 0})
     if not m: return err("Match not found", 404)
-    c = d.missing_persons.find_one({"id": m["case_id"]}, {"_id": 0, "embedding": 0})
-    s = d.sightings.find_one({"id": m["sighting_id"]}, {"_id": 0, "embedding": 0})
+    c = d.missing_persons.find_one({"id": m["case_id"]}, {"_id": 0, "embedding": 0, "photo_bytes": 0})
+    s = d.sightings.find_one({"id": m["sighting_id"]}, {"_id": 0, "embedding": 0, "photo_bytes": 0})
     hist = list(d.history.find({"case_id": m["case_id"]}, {"_id": 0, "event": 1, "actor": 1, "created_at": 1}).sort("id", 1))
     notifs = list(d.notifications.find({"match_id": mid}, {"_id": 0}).sort("id", -1))
     return jsonify({"match": m, "case": c, "sighting": s, "history": hist, "notifications": notifs})
@@ -522,7 +539,7 @@ def resend_match_alert(mid):
 @app.get("/api/admin/sightings")
 @admin_required
 def admin_sightings():
-    rows = db().sightings.find({}, {"_id": 0, "embedding": 0}).sort("id", -1).limit(200)
+    rows = db().sightings.find({}, {"_id": 0, "embedding": 0, "photo_bytes": 0}).sort("id", -1).limit(200)
     return jsonify(list(rows))
 
 @app.get("/api/admin/notifications")
@@ -557,7 +574,17 @@ def admin_notifications():
 def image(name):
     # photos of missing people are sensitive: only logged-in staff can view them
     folder, fname = resolve_photo_path(name)
-    return send_from_directory(folder, fname)
+    if os.path.isfile(os.path.join(folder, fname)):
+        return send_from_directory(folder, fname)
+    norm = (name or "").replace("\\", "/").lstrip("/")
+    d = db()
+    doc = (
+        d.missing_persons.find_one({"photo": norm}, {"photo_bytes": 1})
+        or d.sightings.find_one({"photo": norm}, {"photo_bytes": 1})
+    )
+    if doc and doc.get("photo_bytes"):
+        return Response(bytes(doc["photo_bytes"]), mimetype="image/jpeg")
+    return err("Image not found", 404)
 
 @app.errorhandler(413)
 def too_big(_):
@@ -569,4 +596,5 @@ if __name__ == "__main__":
     except PyMongoError as e:
         print("[error] Could not connect to MongoDB. Start MongoDB locally or set MONGO_URI:", e)
         raise SystemExit(1)
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)

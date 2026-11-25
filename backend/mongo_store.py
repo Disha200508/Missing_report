@@ -49,6 +49,7 @@ def clean_doc(doc):
     out = dict(doc)
     out.pop("_id", None)
     out.pop("embedding", None)
+    out.pop("photo_bytes", None)
     return out
 
 

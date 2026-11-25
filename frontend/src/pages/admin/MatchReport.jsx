@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, postJSON, imageUrl } from "../../api.js";
 import { useToast } from "../../components/Toast.jsx";
+import ImageModal from "../../components/ImageModal.jsx";
 import Login from "./Login.jsx";
 
 export default function MatchReport() {
@@ -11,6 +12,7 @@ export default function MatchReport() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [zoomImg, setZoomImg] = useState(null);
 
   const loadReport = () =>
     api(`/admin/matches/${matchId}`).then(setData).catch((e) => setError(e.message));
@@ -80,7 +82,14 @@ export default function MatchReport() {
           <h2>Missing Person Report</h2>
           {c ? (
             <>
-              <img className="thumb" style={{ maxHeight: 280, objectFit: "cover", marginBottom: 14 }} src={imageUrl(c.photo)} alt="Missing person" />
+              <div
+                className="img-wrap"
+                style={{ marginBottom: 14 }}
+                onClick={() => setZoomImg({ src: imageUrl(c.photo), caption: `${c.code || `#${c.id}`} · ${c.name}` })}
+              >
+                <img className="thumb" style={{ maxHeight: 340 }} src={imageUrl(c.photo)} alt="Missing person" />
+                <span className="enlarge-hint">🔍 Click to enlarge</span>
+              </div>
               <div className="facts">
                 <strong>{c.code || `#${c.id}`}: {c.name}</strong> <span className={"pill " + c.status}>{c.status}</span><br /><br />
                 <strong>Age / Gender:</strong> {c.age ?? "-"} yrs · {c.gender || "-"}<br />
@@ -101,7 +110,14 @@ export default function MatchReport() {
           <h2>Sighting Report</h2>
           {s ? (
             <>
-              <img className="thumb" style={{ maxHeight: 280, objectFit: "cover", marginBottom: 14 }} src={imageUrl(s.photo)} alt="Sighting" />
+              <div
+                className="img-wrap"
+                style={{ marginBottom: 14 }}
+                onClick={() => setZoomImg({ src: imageUrl(s.photo), caption: `${s.code || `#${s.id}`} · ${s.location}` })}
+              >
+                <img className="thumb" style={{ maxHeight: 340 }} src={imageUrl(s.photo)} alt="Sighting" />
+                <span className="enlarge-hint">🔍 Click to enlarge</span>
+              </div>
               <div className="facts">
                 <strong>{s.code || `#${s.id}`}</strong><br /><br />
                 <strong>Location seen:</strong> {s.location}<br />
@@ -146,6 +162,13 @@ export default function MatchReport() {
           ) : <div className="empty">No family alerts sent for this match yet.</div>}
         </div>
       </div>
+      {zoomImg && (
+        <ImageModal
+          src={zoomImg.src}
+          caption={zoomImg.caption}
+          onClose={() => setZoomImg(null)}
+        />
+      )}
     </div>
   );
 }

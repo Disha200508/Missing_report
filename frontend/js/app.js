@@ -8,6 +8,39 @@ function toast(msg){
   setTimeout(() => t.classList.remove("show"), 3000);
 }
 
+function openLightbox(src, caption = ""){
+  if (!src) return;
+  const existing = document.getElementById("active-lightbox");
+  if (existing) existing.remove();
+  const lb = document.createElement("div");
+  lb.id = "active-lightbox";
+  lb.className = "lightbox";
+  lb.innerHTML = `
+    <div class="lightbox-box">
+      <button class="lightbox-close" aria-label="Close">✕</button>
+      <img class="lightbox-img" src="${src}" alt="Enlarged photo">
+      ${caption ? `<div class="lightbox-cap">${esc(caption)}</div>` : ""}
+    </div>`;
+  document.body.appendChild(lb);
+  const close = () => {
+    document.removeEventListener("keydown", onKey);
+    lb.remove();
+  };
+  const onKey = e => { if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", onKey);
+  lb.onclick = e => {
+    if (e.target === lb || e.target.closest(".lightbox-close")) close();
+  };
+}
+
+document.addEventListener("click", e => {
+  const trigger = e.target.closest("[data-zoom]");
+  if (trigger) {
+    e.stopPropagation();
+    openLightbox(trigger.dataset.zoom, trigger.dataset.cap);
+  }
+});
+
 async function api(path, opts = {}){
   const res = await fetch("/api" + path, opts);
   let data = {};
@@ -265,11 +298,23 @@ async function matchesPane(p){
     list.innerHTML = rows.map(m => {
       const lvl = m.score >= 75 ? "hi" : m.score >= 50 ? "mid" : "lo";
       return `<div class="card" style="margin-bottom:16px"><div class="match">
-        <div><img src="${img(m.case_photo)}" alt="Missing person"><div class="facts"><strong>${esc(m.case_code || "#"+m.case_id)}: ${esc(m.name)}</strong><br>
-          ${m.age ?? "?"} yrs · ${esc(m.gender||"-")}<br>Last seen: ${esc(m.last_seen_location||"-")}</div></div>
+        <div>
+          <div class="img-wrap" data-zoom="${img(m.case_photo)}" data-cap="${esc(m.case_code || "#"+m.case_id)} · ${esc(m.name)}">
+            <img src="${img(m.case_photo)}" alt="Missing person">
+            <span class="enlarge-hint">🔍 Enlarge</span>
+          </div>
+          <div class="facts" style="margin-top:8px"><strong>${esc(m.case_code || "#"+m.case_id)}: ${esc(m.name)}</strong><br>
+            ${m.age ?? "?"} yrs · ${esc(m.gender||"-")}<br>Last seen: ${esc(m.last_seen_location||"-")}</div>
+        </div>
         <div class="score ${lvl}"><b>${m.score}%</b>match<br><span class="pill ${m.status}">${m.status}</span></div>
-        <div><img src="${img(m.sighting_photo)}" alt="Sighting"><div class="facts"><strong>${esc(m.sighting_code || "#"+m.sighting_id)}</strong><br>
-          ${esc(m.sighting_location)}<br>${esc(m.description||"")}<br>${esc(m.seen_at)}</div></div></div>
+        <div>
+          <div class="img-wrap" data-zoom="${img(m.sighting_photo)}" data-cap="${esc(m.sighting_code || "#"+m.sighting_id)} · ${esc(m.sighting_location)}">
+            <img src="${img(m.sighting_photo)}" alt="Sighting">
+            <span class="enlarge-hint">🔍 Enlarge</span>
+          </div>
+          <div class="facts" style="margin-top:8px"><strong>${esc(m.sighting_code || "#"+m.sighting_id)}</strong><br>
+            ${esc(m.sighting_location)}<br>${esc(m.description||"")}<br>${esc(m.seen_at)}</div>
+        </div></div>
         ${m.status==="pending" ? `<div class="actions"><button class="btn ok small" data-a="verify" data-id="${m.id}">✓ Verify &amp; notify family</button>
           <button class="btn bad small" data-a="reject" data-id="${m.id}">✕ Not the same person</button>
           <a class="btn ghost small" href="#/admin/report/${m.id}">View full report</a></div>`
@@ -292,10 +337,10 @@ async function casesPane(p){
   const load = async () => {
     const rows = await api(`/admin/cases?q=${encodeURIComponent(q.value)}&status=${encodeURIComponent(st.value)}`);
     document.getElementById("tb").innerHTML = rows.length ? `<table><tr><th></th><th>Case ID</th><th>Name</th><th>Age</th><th>Last seen</th><th>Status</th><th>Registered</th></tr>
-      ${rows.map(c => `<tr style="cursor:pointer" data-id="${c.id}"><td><img src="${img(c.photo)}" alt=""></td><td><strong>${esc(c.code || "#"+c.id)}</strong></td><td>${esc(c.name)}</td><td>${c.age ?? "-"}</td>
+      ${rows.map(c => `<tr style="cursor:pointer" data-id="${c.id}"><td onclick="event.stopPropagation()"><img src="${img(c.photo)}" alt="" data-zoom="${img(c.photo)}" data-cap="${esc(c.code || "#"+c.id)} · ${esc(c.name)}"></td><td><strong>${esc(c.code || "#"+c.id)}</strong></td><td>${esc(c.name)}</td><td>${c.age ?? "-"}</td>
         <td>${esc(c.last_seen_location||"-")}</td><td><span class="pill ${esc(c.status)}">${esc(c.status)}</span></td><td>${esc(c.created_at)}</td></tr>`).join("")}</table>`
       : `<div class="empty">No cases found.</div>`;
-    document.querySelectorAll("tr[data-id]").forEach(r => r.onclick = () => caseModal(r.dataset.id));
+    document.querySelectorAll("tr[data-id]").forEach(r => r.onclick = (e) => { if (!e.target.closest("img")) caseModal(r.dataset.id); });
   };
   const q = document.getElementById("q"), st = document.getElementById("st");
   let t; q.oninput = () => { clearTimeout(t); t = setTimeout(load, 300); }; st.onchange = load; load();
@@ -304,7 +349,7 @@ async function casesPane(p){
 async function caseModal(id){
   const {case:c, history} = await api("/admin/cases/"+id);
   const m = document.createElement("div"); m.className = "modal";
-  m.innerHTML = `<div class="box"><div style="display:flex;gap:16px"><img class="thumb" style="width:130px" src="${img(c.photo)}" alt="">
+  m.innerHTML = `<div class="box"><div style="display:flex;gap:16px"><div class="img-wrap" style="width:140px;flex-shrink:0" data-zoom="${img(c.photo)}" data-cap="${esc(c.code || "#"+c.id)} · ${esc(c.name)}"><img class="thumb" src="${img(c.photo)}" alt=""><span class="enlarge-hint">🔍</span></div>
     <div><h3>${esc(c.code || "#"+c.id)} · ${esc(c.name)}</h3><div class="facts">${c.age ?? "?"} yrs · ${esc(c.gender||"-")}<br>Missing since: ${esc(c.date_missing||"-")}<br>
     Last seen: ${esc(c.last_seen_location||"-")}<br>Marks: ${esc(c.marks||"-")}<br>Contact: ${esc(c.contact_name||"")} ${esc(c.contact_phone||"")} ${esc(c.contact_email||"")}</div></div></div>
     <label style="margin-top:14px">Status<select id="ns">${["Active","Under Investigation","Probable Match Found","Verified","Closed"].map(s=>`<option ${s===c.status?"selected":""}>${s}</option>`).join("")}</select></label>
@@ -322,7 +367,7 @@ async function caseModal(id){
 async function sightingsPane(p){
   const rows = await api("/admin/sightings");
   p.innerHTML = rows.length ? `<div class="tablewrap"><table><tr><th></th><th>Sighting ID</th><th>Location</th><th>Details</th><th>Reporter</th><th>Time</th></tr>
-    ${rows.map(s=>`<tr><td><img src="${img(s.photo)}" alt=""></td><td><strong>${esc(s.code || "#"+s.id)}</strong></td><td>${esc(s.location)}</td><td>${esc(s.description||"-")}</td>
+    ${rows.map(s=>`<tr><td><img src="${img(s.photo)}" alt="" data-zoom="${img(s.photo)}" data-cap="${esc(s.code || "#"+s.id)} · ${esc(s.location)}"></td><td><strong>${esc(s.code || "#"+s.id)}</strong></td><td>${esc(s.location)}</td><td>${esc(s.description||"-")}</td>
     <td>${esc(s.reporter_name||"-")}<br><small>${esc(s.reporter_contact||"")}</small></td><td>${esc(s.created_at)}</td></tr>`).join("")}</table></div>`
     : `<div class="empty">No sightings yet.</div>`;
 }
@@ -384,7 +429,10 @@ async function reportDetailPage(matchId){
         <div class="card">
           <h2>Missing Person Report</h2>
           ${c ? `
-            <img class="thumb" style="max-height:280px;object-fit:cover;margin-bottom:14px" src="${img(c.photo)}" alt="Missing person">
+            <div class="img-wrap" style="margin-bottom:14px" data-zoom="${img(c.photo)}" data-cap="${esc(c.code || "#"+c.id)} · ${esc(c.name)}">
+              <img class="thumb" style="max-height:340px" src="${img(c.photo)}" alt="Missing person">
+              <span class="enlarge-hint">🔍 Click to enlarge</span>
+            </div>
             <div class="facts">
               <strong>${esc(c.code || "#"+c.id)}: ${esc(c.name)}</strong> <span class="pill ${esc(c.status)}">${esc(c.status)}</span><br><br>
               <strong>Age / Gender:</strong> ${c.age ?? "-"} yrs · ${esc(c.gender || "-")}<br>
@@ -403,7 +451,10 @@ async function reportDetailPage(matchId){
         <div class="card">
           <h2>Sighting Report</h2>
           ${s ? `
-            <img class="thumb" style="max-height:280px;object-fit:cover;margin-bottom:14px" src="${img(s.photo)}" alt="Sighting">
+            <div class="img-wrap" style="margin-bottom:14px" data-zoom="${img(s.photo)}" data-cap="${esc(s.code || "#"+s.id)} · ${esc(s.location)}">
+              <img class="thumb" style="max-height:340px" src="${img(s.photo)}" alt="Sighting">
+              <span class="enlarge-hint">🔍 Click to enlarge</span>
+            </div>
             <div class="facts">
               <strong>${esc(s.code || "#"+s.id)}</strong><br><br>
               <strong>Location seen:</strong> ${esc(s.location)}<br>

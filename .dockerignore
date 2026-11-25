@@ -1,0 +1,9 @@
+.git
+.env
+backend/.env
+backend/mpis.db
+backend/uploads
+backend/data
+**/__pycache__
+**/node_modules
+ui

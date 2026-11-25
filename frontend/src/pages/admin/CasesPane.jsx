@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { api, imageUrl, STATUSES } from "../../api.js";
 import CaseModal from "./CaseModal.jsx";
+import ImageModal from "../../components/ImageModal.jsx";
 
 export default function CasesPane({ onChange }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [rows, setRows] = useState(null);
   const [openId, setOpenId] = useState(null);
+  const [zoomImg, setZoomImg] = useState(null);
 
   const load = () =>
     api(`/admin/cases?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}`).then(setRows);
@@ -33,7 +35,9 @@ export default function CasesPane({ onChange }) {
             <tbody>
               {rows.map((c) => (
                 <tr key={c.id} style={{ cursor: "pointer" }} onClick={() => setOpenId(c.id)}>
-                  <td><img src={imageUrl(c.photo)} alt="" /></td>
+                  <td onClick={(e) => { e.stopPropagation(); setZoomImg({ src: imageUrl(c.photo), caption: `${c.code || `#${c.id}`} · ${c.name}` }); }}>
+                    <img src={imageUrl(c.photo)} alt="" />
+                  </td>
                   <td><strong>{c.code || `#${c.id}`}</strong></td><td>{c.name}</td><td>{c.age ?? "-"}</td>
                   <td>{c.last_seen_location || "-"}</td>
                   <td><span className={"pill " + c.status}>{c.status}</span></td>
@@ -45,6 +49,13 @@ export default function CasesPane({ onChange }) {
         </div>
       )}
       {openId && <CaseModal id={openId} onClose={() => setOpenId(null)} onSaved={() => { load(); onChange(); }} />}
+      {zoomImg && (
+        <ImageModal
+          src={zoomImg.src}
+          caption={zoomImg.caption}
+          onClose={() => setZoomImg(null)}
+        />
+      )}
     </>
   );
 }

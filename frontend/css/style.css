@@ -58,8 +58,18 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
 .tabs button{background:none;border:0;padding:10px 16px;font:600 .95rem Inter;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent}
 .tabs button.on{color:var(--ink);border-color:var(--accent)}
 .match{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center}
-.match img,.thumb{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;background:var(--bg)}
-.score{text-align:center}
+.img-wrap{position:relative;display:block;border-radius:12px;overflow:hidden;background:#0d1524;border:1px solid var(--line);cursor:zoom-in}
+.img-wrap:hover .enlarge-hint{opacity:1}
+.match img,.thumb{width:100%;max-height:300px;object-fit:contain;display:block;border-radius:12px;background:#0d1524;cursor:zoom-in}
+.enlarge-hint{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.75);color:#fff;font-size:.78rem;padding:4px 8px;border-radius:6px;pointer-events:none;opacity:.85;transition:.2s;display:flex;align-items:center;gap:4px;backdrop-filter:blur(4px)}
+td img{width:50px;height:50px;border-radius:8px;object-fit:cover;cursor:zoom-in;transition:transform .15s}
+td img:hover{transform:scale(1.15)}
+.lightbox{position:fixed;inset:0;background:rgba(5,10,20,.88);backdrop-filter:blur(6px);display:grid;place-items:center;padding:24px;z-index:90;cursor:zoom-out;animation:fadeIn .2s}
+.lightbox-box{position:relative;max-width:92vw;max-height:92vh;display:flex;flex-direction:column;align-items:center;cursor:default}
+.lightbox-img{max-width:92vw;max-height:82vh;object-fit:contain;border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,.6);background:#070b14}
+.lightbox-cap{color:#fff;margin-top:10px;font-size:.92rem;text-align:center;max-width:600px;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.lightbox-close{position:absolute;top:-14px;right:-14px;background:var(--accent);color:#fff;border:2px solid #fff;border-radius:50%;width:34px;height:34px;font-size:1.1rem;cursor:pointer;display:grid;place-items:center;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.4);line-height:1}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .score b{display:block;font:700 2.2rem Fraunces,serif}
 .score.hi b{color:var(--ok)} .score.mid b{color:var(--warn)} .score.lo b{color:var(--bad)}
 .facts{font-size:.9rem;color:var(--muted)} .facts strong{color:var(--ink)}

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { api, patchJSON, imageUrl, STATUSES } from "../../api.js";
 import { useToast } from "../../components/Toast.jsx";
+import ImageModal from "../../components/ImageModal.jsx";
 
 export default function CaseModal({ id, onClose, onSaved }) {
   const toast = useToast();
   const [data, setData] = useState(null);
   const [status, setStatus] = useState("");
+  const [zoomImg, setZoomImg] = useState(null);
 
   useEffect(() => {
     api("/admin/cases/" + id).then((d) => { setData(d); setStatus(d.case.status); });
@@ -22,7 +24,14 @@ export default function CaseModal({ id, onClose, onSaved }) {
     <div className="modal" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="box">
         <div style={{ display: "flex", gap: 16 }}>
-          <img className="thumb" style={{ width: 130 }} src={imageUrl(c.photo)} alt="" />
+          <div
+            className="img-wrap"
+            style={{ width: 140, flexShrink: 0 }}
+            onClick={() => setZoomImg({ src: imageUrl(c.photo), caption: `${c.code || `#${c.id}`} · ${c.name}` })}
+          >
+            <img className="thumb" src={imageUrl(c.photo)} alt="" />
+            <span className="enlarge-hint">🔍</span>
+          </div>
           <div>
             <h3>{c.code || `#${c.id}`} · {c.name}</h3>
             <div className="facts">
@@ -48,6 +57,13 @@ export default function CaseModal({ id, onClose, onSaved }) {
           <button className="btn ghost small" onClick={onClose}>Close</button>
         </div>
       </div>
+      {zoomImg && (
+        <ImageModal
+          src={zoomImg.src}
+          caption={zoomImg.caption}
+          onClose={() => setZoomImg(null)}
+        />
+      )}
     </div>
   );
 }
