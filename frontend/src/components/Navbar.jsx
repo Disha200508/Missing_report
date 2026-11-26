@@ -12,7 +12,7 @@ export default function Navbar() {
         <NavLink to="/register" onClick={close}>Report missing</NavLink>
         <NavLink to="/report" onClick={close}>Report a sighting</NavLink>
         <NavLink to="/track" onClick={close}>Track a case</NavLink>
-        <NavLink to="/admin" className="staff" onClick={close}>Staff login</NavLink>
+        <NavLink to="/admin" className="staff" onClick={close}>Admin login</NavLink>
       </nav>
     </header>
   );

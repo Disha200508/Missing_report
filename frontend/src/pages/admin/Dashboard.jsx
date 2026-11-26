@@ -31,7 +31,7 @@ export default function Dashboard({ user, onLogout }) {
       {overview && overview.pending_matches > 0 && (
         <div className="notice" style={{ marginBottom: 18, borderLeftColor: "var(--accent)", background: "rgba(232,116,59,.12)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div>
-            <strong>Match alert:</strong> {overview.pending_matches} probable face {overview.pending_matches === 1 ? "match" : "matches"} detected and awaiting staff verification.
+            <strong>Match alert:</strong> {overview.pending_matches} probable face {overview.pending_matches === 1 ? "match" : "matches"} detected and awaiting admin verification.
           </div>
           {tab !== "matches" && (
             <button className="btn accent small" onClick={() => setTab("matches")}>Review matches</button>

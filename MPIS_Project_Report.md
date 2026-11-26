@@ -13,7 +13,7 @@
 
 The **Missing Person Identification System (MPIS)** is an end-to-end AI-powered web platform engineered to assist families, humanitarian organizations, and law enforcement agencies in locating missing individuals. 
 
-The platform allows families to register missing person cases and allows the public to report sightings with photos and location details. Whenever a photo is submitted, an integrated Computer Vision pipeline detects faces, computes a 512-dimensional biometric embedding using a custom-trained Deep Learning model, and cross-compares it across all stored records. When a high-confidence match is flagged, it is routed to authorized human staff for manual verification. Upon verification, automated multi-channel alerts (SMS, WhatsApp, and Email) are dispatched immediately to the family and designated authorities.
+The platform allows families to register missing person cases and allows the public to report sightings with photos and location details. Whenever a photo is submitted, an integrated Computer Vision pipeline detects faces, computes a 512-dimensional biometric embedding using a custom-trained Deep Learning model, and cross-compares it across all stored records. When a high-confidence match is flagged, it is routed to authorized administrators for manual verification. Upon verification, automated multi-channel alerts (SMS, WhatsApp, and Email) are dispatched immediately to the family and designated authorities.
 
 ```mermaid
 flowchart LR
@@ -22,7 +22,7 @@ flowchart LR
     C -->|"Face Detection"| D["MTCNN"]
     D -->|"Normalized Face"| E["Custom ResNet-18 Embedder"]
     E -->|"512-D Vector"| F["Cosine Matching Engine"]
-    F -->|"Match Flagged"| G["Staff Admin Portal"]
+    F -->|"Match Flagged"| G["Administrator Portal"]
     G -->|"Verify & Confirm"| H["Notification Dispatcher"]
     H -->|"Email"| I["Resend / SMTP (Gmail)"]
     H -->|"WhatsApp / SMS"| J["Twilio / Fast2SMS"]
@@ -39,7 +39,7 @@ flowchart LR
 | **Backend & Web Framework** | `Python 3.10`<br>`Flask 3.x`<br>`Gunicorn 21.x`<br>`Werkzeug`<br>`python-dotenv`<br>`zoneinfo` / `tzdata` | RESTful API endpoints, request validation, authentication, session security, proxy header handling, error routing, and IST timezone scheduling. |
 | **Database & Cloud Storage** | `MongoDB Atlas (M0 Cloud)`<br>`PyMongo 4.x`<br>`dnspython`<br>`BSON Binary` | Scalable NoSQL cloud document storage, atomic sequential ID counters (`MP-`, `SG-`), binary photo backup (`photo_bytes`), match history, and audit trails. |
 | **Notification Infrastructure** | `Twilio API (Twilio Python SDK)`<br>`Twilio WhatsApp Sandbox`<br>`Resend REST API`<br>`smtplib` & `email.message`<br>`Fast2SMS API` | Automated dual-channel family alerts: Email delivery over HTTPS (port 443), WhatsApp messaging, and direct Indian SIM SMS routing. |
-| **Frontend & UI / UX** | Vanilla JavaScript (ES6+)<br>React 18 / JSX<br>HTML5 / CSS3<br>Vite | Responsive Single Page Application (SPA), real-time photo preview, full-screen lightbox image zoom, live ID generation previews, and staff review dashboard. |
+| **Frontend & UI / UX** | Vanilla JavaScript (ES6+)<br>React 18 / JSX<br>HTML5 / CSS3<br>Vite | Responsive Single Page Application (SPA), real-time photo preview, full-screen lightbox image zoom, live ID generation previews, and administrator review dashboard. |
 | **DevOps & Containerization** | `Docker (python:3.10-slim)`<br>`Render Cloud Platform`<br>`Git & GitHub` | Ephemeral containerized hosting, multi-stage pip dependency caching, environment variable secret management, and continuous deployment (`main` branch). |
 
 ---
@@ -97,7 +97,7 @@ To ensure public users can upload photos from any mobile device, camera, or brow
 * **HEIC Support:** Integrated `pillow-heif` to register native Apple HEIC decoders dynamically.
 * **Transparency Handling:** Automatically detects transparent alpha channels (`RGBA`, `LA`, `P`) and composites images over a solid white canvas before conversion, preventing black-box transparency artifacts.
 * **Standardized Storage:** All images are resized to a maximum bounding box of 1600×1600 via high-quality `LANCZOS` resampling and saved as 92% quality clean JPEGs (with all EXIF GPS metadata stripped for privacy).
-* **Interactive Lightbox (UI):** Built an image zoom modal (`data-zoom`) allowing staff to click any photo thumbnail to inspect facial features at 100% full-screen resolution.
+* **Interactive Lightbox (UI):** Built an image zoom modal (`data-zoom`) allowing administrators to click any photo thumbnail to inspect facial features at 100% full-screen resolution.
 
 ---
 
@@ -175,7 +175,7 @@ erDiagram
 
 ## 6. Multi-Channel Notification Infrastructure
 
-When authorized staff confirm a match by clicking **Verify**, the notification engine (`backend/notifier.py`) dispatches simultaneous alerts:
+When authorized administrators confirm a match by clicking **Verify**, the notification engine (`backend/notifier.py`) dispatches simultaneous alerts:
 
 ### 6.1 Email Channel (Resend & Gmail SMTP)
 * **HTTPS Resend Integration:** Bypasses cloud port blocks (Render blocks SMTP ports 25, 465, and 587 on free instances) by transmitting alerts over HTTPS port 443 to `https://api.resend.com/emails`.
@@ -191,15 +191,15 @@ When authorized staff confirm a match by clicking **Verify**, the notification e
 * **Fast2SMS Gateway:** Integrated native Indian carrier SMS dispatching via Fast2SMS developer APIs for direct delivery to Indian SIM cards (+91).
 
 ### 6.3 Dynamic Personalization & Custom Admin Prompt
-* Before dispatch, staff receive an interactive prompt allowing them to review and edit the personalized alert message:
+* Before dispatch, administrators receive an interactive prompt allowing them to review and edit the personalized alert message:
   > *"Dear [Contact Name], MPIS Update: A possible sighting of [Missing Person] ([Case Code]) has been verified near [Location]. An officer will contact you shortly."*
 
 ---
 
 ## 7. Security & Privacy Safeguards
 
-1. **Public Privacy Protection:** Public users submitting cases or sightings are **never** shown photos, names, or match scores of other individuals. Match alerts are strictly restricted to authenticated staff.
-2. **Role-Based Authentication:** Staff dashboard routes (`/api/admin/*`) are protected by `@admin_required` session decorators using secure `PBKDF2-SHA256` password hashing.
+1. **Public Privacy Protection:** Public users submitting cases or sightings are **never** shown photos, names, or match scores of other individuals. Match alerts are strictly restricted to authenticated administrators.
+2. **Role-Based Authentication:** Administrator dashboard routes (`/api/admin/*`) are protected by `@admin_required` session decorators using secure `PBKDF2-SHA256` password hashing.
 3. **Session Cookie Hardening:** `HTTPOnly`, `SameSite=Lax`, and `ProxyFix` middleware headers enabled.
 4. **Input Sanitization & Limits:** Uploaded image payload capped at 10 MB (`MAX_CONTENT_LENGTH`), text fields sanitized and truncated, and phone/email validated using regex patterns.
 

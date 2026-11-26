@@ -14,7 +14,7 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="wrap narrow">
-      <h1>Staff login</h1>
+      <h1>Admin login</h1>
       <form className="card" onSubmit={submit}>
         <label>Username<input autoComplete="username" required value={username} onChange={(e) => setUsername(e.target.value)} /></label>
         <label>Password<input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label>

@@ -129,13 +129,13 @@
 <hr />
 <h2>1. Executive Summary</h2>
 <p>The <strong>Missing Person Identification System (MPIS)</strong> is an end-to-end AI-powered web platform engineered to assist families, humanitarian organizations, and law enforcement agencies in locating missing individuals. </p>
-<p>The platform allows families to register missing person cases and allows the public to report sightings with photos and location details. Whenever a photo is submitted, an integrated Computer Vision pipeline detects faces, computes a 512-dimensional biometric embedding using a custom-trained Deep Learning model, and cross-compares it across all stored records. When a high-confidence match is flagged, it is routed to authorized human staff for manual verification. Upon verification, automated multi-channel alerts (SMS, WhatsApp, and Email) are dispatched immediately to the family and designated authorities.</p>
+<p>The platform allows families to register missing person cases and allows the public to report sightings with photos and location details. Whenever a photo is submitted, an integrated Computer Vision pipeline detects faces, computes a 512-dimensional biometric embedding using a custom-trained Deep Learning model, and cross-compares it across all stored records. When a high-confidence match is flagged, it is routed to authorized administrators for manual verification. Upon verification, automated multi-channel alerts (SMS, WhatsApp, and Email) are dispatched immediately to the family and designated authorities.</p>
 <div class="diagram-box"><strong>System Architecture Flow:</strong><pre>A["Public / Family"] -->|"Photo & Details"| B["Frontend UI"]
 B -->|"REST API (HTTPS)"| C["Flask Backend"]
 C -->|"Face Detection"| D["MTCNN"]
 D -->|"Normalized Face"| E["Custom ResNet-18 Embedder"]
 E -->|"512-D Vector"| F["Cosine Matching Engine"]
-F -->|"Match Flagged"| G["Staff Admin Portal"]
+F -->|"Match Flagged"| G["Administrator Portal"]
 G -->|"Verify & Confirm"| H["Notification Dispatcher"]
 H -->|"Email"| I["Resend / SMTP (Gmail)"]
 H -->|"WhatsApp / SMS"| J["Twilio / Fast2SMS"]
@@ -175,7 +175,7 @@ C <-->|"Store & Query"| K[("MongoDB Atlas Cloud")]</pre></div>
 <tr>
 <td style="text-align: left;"><strong>Frontend &amp; UI / UX</strong></td>
 <td style="text-align: left;">Vanilla JavaScript (ES6+)<br>React 18 / JSX<br>HTML5 / CSS3<br>Vite</td>
-<td style="text-align: left;">Responsive Single Page Application (SPA), real-time photo preview, full-screen lightbox image zoom, live ID generation previews, and staff review dashboard.</td>
+<td style="text-align: left;">Responsive Single Page Application (SPA), real-time photo preview, full-screen lightbox image zoom, live ID generation previews, and administrator review dashboard.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>DevOps &amp; Containerization</strong></td>
@@ -233,7 +233,7 @@ Dot --> Match["Confidence Score: 0 - 100%"]</pre></div>
 * <strong>HEIC Support:</strong> Integrated <code>pillow-heif</code> to register native Apple HEIC decoders dynamically.<br />
 * <strong>Transparency Handling:</strong> Automatically detects transparent alpha channels (<code>RGBA</code>, <code>LA</code>, <code>P</code>) and composites images over a solid white canvas before conversion, preventing black-box transparency artifacts.<br />
 * <strong>Standardized Storage:</strong> All images are resized to a maximum bounding box of 1600×1600 via high-quality <code>LANCZOS</code> resampling and saved as 92% quality clean JPEGs (with all EXIF GPS metadata stripped for privacy).<br />
-* <strong>Interactive Lightbox (UI):</strong> Built an image zoom modal (<code>data-zoom</code>) allowing staff to click any photo thumbnail to inspect facial features at 100% full-screen resolution.</p>
+* <strong>Interactive Lightbox (UI):</strong> Built an image zoom modal (<code>data-zoom</code>) allowing administrators to click any photo thumbnail to inspect facial features at 100% full-screen resolution.</p>
 <hr />
 <h2>5. Database Architecture &amp; MongoDB Cloud Integration</h2>
 <p>The persistence layer (<code>backend/mongo_store.py</code>) connects to MongoDB Atlas:</p>
@@ -303,7 +303,7 @@ string created_at
 </ol>
 <hr />
 <h2>6. Multi-Channel Notification Infrastructure</h2>
-<p>When authorized staff confirm a match by clicking <strong>Verify</strong>, the notification engine (<code>backend/notifier.py</code>) dispatches simultaneous alerts:</p>
+<p>When authorized administrators confirm a match by clicking <strong>Verify</strong>, the notification engine (<code>backend/notifier.py</code>) dispatches simultaneous alerts:</p>
 <h3>6.1 Email Channel (Resend &amp; Gmail SMTP)</h3>
 <ul>
 <li><strong>HTTPS Resend Integration:</strong> Bypasses cloud port blocks (Render blocks SMTP ports 25, 465, and 587 on free instances) by transmitting alerts over HTTPS port 443 to <code>https://api.resend.com/emails</code>.</li>
@@ -320,7 +320,7 @@ string created_at
 </ul>
 <h3>6.3 Dynamic Personalization &amp; Custom Admin Prompt</h3>
 <ul>
-<li>Before dispatch, staff receive an interactive prompt allowing them to review and edit the personalized alert message:<blockquote>
+<li>Before dispatch, administrators receive an interactive prompt allowing them to review and edit the personalized alert message:<blockquote>
 <p><em>"Dear [Contact Name], MPIS Update: A possible sighting of [Missing Person] ([Case Code]) has been verified near [Location]. An officer will contact you shortly."</em></p>
 </blockquote>
 </li>
@@ -328,8 +328,8 @@ string created_at
 <hr />
 <h2>7. Security &amp; Privacy Safeguards</h2>
 <ol>
-<li><strong>Public Privacy Protection:</strong> Public users submitting cases or sightings are <strong>never</strong> shown photos, names, or match scores of other individuals. Match alerts are strictly restricted to authenticated staff.</li>
-<li><strong>Role-Based Authentication:</strong> Staff dashboard routes (<code>/api/admin/*</code>) are protected by <code>@admin_required</code> session decorators using secure <code>PBKDF2-SHA256</code> password hashing.</li>
+<li><strong>Public Privacy Protection:</strong> Public users submitting cases or sightings are <strong>never</strong> shown photos, names, or match scores of other individuals. Match alerts are strictly restricted to authenticated administrators.</li>
+<li><strong>Role-Based Authentication:</strong> Administrator dashboard routes (<code>/api/admin/*</code>) are protected by <code>@admin_required</code> session decorators using secure <code>PBKDF2-SHA256</code> password hashing.</li>
 <li><strong>Session Cookie Hardening:</strong> <code>HTTPOnly</code>, <code>SameSite=Lax</code>, and <code>ProxyFix</code> middleware headers enabled.</li>
 <li><strong>Input Sanitization &amp; Limits:</strong> Uploaded image payload capped at 10 MB (<code>MAX_CONTENT_LENGTH</code>), text fields sanitized and truncated, and phone/email validated using regex patterns.</li>
 </ol>

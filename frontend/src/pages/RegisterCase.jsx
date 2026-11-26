@@ -20,7 +20,7 @@ export default function RegisterCase() {
           <p>Report submitted</p>
           <div className="big">Case ID: {result.case_id}</div>
           <p>Please save this ID. You can use it to <Link to="/track">track the status</Link> of your case.
-            We will contact you if staff verify a possible match.</p>
+            We will contact you if an administrator verifies a possible match.</p>
         </div>
         {showModal && (
           <div className="modal" onClick={(e) => e.target === e.currentTarget && setShowModal(false)}>
@@ -62,7 +62,7 @@ export default function RegisterCase() {
         <label>Identifying marks / clothing<textarea name="marks" rows={2} maxLength={500} /></label>
         <PhotoField />
         <h3 style={{ margin: "6px 0 0" }}>Your contact details</h3>
-        <div className="notice">Used only to alert you once staff verify a match.</div>
+        <div className="notice">Used only to alert you once admin verifies a match.</div>
         <div className="row">
           <label>Your name<input name="contact_name" /></label>
           <label>Phone *<input name="contact_phone" placeholder="+91 98765 43210" /></label>

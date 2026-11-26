@@ -77,7 +77,7 @@ async function home(){
   <section class="hero"><div class="in">
     <h1>Helping families find their missing loved ones, faster.</h1>
     <p>Register a missing person, or report someone you have seen. Our face-matching system compares photos in seconds
-       and passes possible matches to trained staff to verify.</p>
+       and passes possible matches to administrators to verify.</p>
     <div class="btns">
       <a class="btn accent" href="#/register">Report a missing person</a>
       <a class="btn ghost" href="#/report">I saw someone</a>
@@ -89,10 +89,10 @@ async function home(){
     <div class="grid">
       <div class="card"><div class="num">1</div><h3>Register or report</h3><p>Upload a clear photo with a few details. Families register cases; anyone can report a sighting.</p></div>
       <div class="card"><div class="num">2</div><h3>AI compares faces</h3><p>The face is detected, converted to a numerical fingerprint and compared against every stored record.</p></div>
-      <div class="card"><div class="num">3</div><h3>Humans verify</h3><p>Possible matches go to authorised staff. Nothing is acted on until a person confirms it.</p></div>
+      <div class="card"><div class="num">3</div><h3>Humans verify</h3><p>Possible matches go to authorized administrators. Nothing is acted on until confirmed.</p></div>
       <div class="card"><div class="num">4</div><h3>Family is alerted</h3><p>Once verified, the family or authority is notified by SMS or email.</p></div>
     </div>
-    <div class="notice" style="margin-top:28px"><strong>Privacy first:</strong> photos are only visible to authorised staff. Public users never see other people's photos or match results.</div>
+    <div class="notice" style="margin-top:28px"><strong>Privacy first:</strong> photos are only visible to authorized administrators. Public users never see other people's photos or match results.</div>
   </div>`;
   try{
     const s = await api("/stats");
@@ -161,7 +161,7 @@ function registerPage(){
     <label>Identifying marks / clothing<textarea name="marks" rows="2" maxlength="500"></textarea></label>
     ${photoField()}
     <h3 style="margin:6px 0 0">Your contact details</h3>
-    <div class="notice">Used only to alert you once staff verify a match.</div>
+    <div class="notice">Used only to alert you once admin verifies a match.</div>
     <div class="row"><label>Your name<input name="contact_name"></label>
       <label>Phone *<input name="contact_phone" placeholder="+91 98765 43210"></label></div>
     <label>Email<input name="contact_email" type="email"></label>
@@ -177,7 +177,7 @@ function registerPage(){
     $app.innerHTML = `<div class="wrap narrow"><div class="success"><p>Report submitted</p>
       <div class="big">Case ID: ${esc(r.case_id)}</div>
       <p>Please save this ID. You can use it to <a href="#/track">track the status</a> of your case.
-      We will contact you if staff verify a possible match.</p></div></div>`;
+      We will contact you if an administrator verifies a possible match.</p></div></div>`;
     showReportModal(
       "Report submitted",
       "Missing Person Case ID",
@@ -245,7 +245,7 @@ async function adminPage(){
   dashboard(me.user);
 }
 function loginView(){
-  $app.innerHTML = `<div class="wrap narrow"><h1>Staff login</h1>
+  $app.innerHTML = `<div class="wrap narrow"><h1>Admin login</h1>
   <form class="card" id="f"><label>Username<input name="u" autocomplete="username" required></label>
   <label>Password<input name="p" type="password" autocomplete="current-password" required></label>
   <div class="error"></div><button class="btn" type="submit">Log in</button></form></div>`;
@@ -274,7 +274,7 @@ async function dashboard(user){
     if (o.pending_matches > 0){
       const ab = document.getElementById("alert-banner");
       ab.innerHTML = `<div class="notice" style="margin-bottom:18px;border-left-color:var(--accent);background:rgba(232,116,59,.12);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-        <div><strong>Match alert:</strong> ${o.pending_matches} probable face ${o.pending_matches===1?"match":"matches"} detected and awaiting staff verification.</div>
+        <div><strong>Match alert:</strong> ${o.pending_matches} probable face ${o.pending_matches===1?"match":"matches"} detected and awaiting admin verification.</div>
         ${tab !== "matches" ? `<button class="btn accent small" id="go-matches">Review matches</button>` : ""}
       </div>`;
       const gm = document.getElementById("go-matches");
@@ -393,7 +393,7 @@ async function alertsPane(p){
         <td>${esc(n.message)}</td>
         <td>${n.match_id ? `<a class="btn small" href="#/admin/report/${n.match_id}">View full report</a>` : "-"}</td></tr>`).join("")}</table></div>`
     : `<div class="empty" style="padding:18px 0">No family alerts sent yet.</div>`;
-  p.innerHTML = `<h3 style="margin-bottom:10px">Staff Match Alerts</h3>${matchHtml}<h3 style="margin-bottom:10px">Family Notifications Sent</h3>${notifHtml}`;
+  p.innerHTML = `<h3 style="margin-bottom:10px">Admin Match Alerts</h3>${matchHtml}<h3 style="margin-bottom:10px">Family Notifications Sent</h3>${notifHtml}`;
 }
 
 async function reportDetailPage(matchId){

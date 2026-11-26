@@ -434,7 +434,7 @@ def report_sighting():
         if crow:
             save_record_json("case", m["case_id"], crow)
     return jsonify({"sighting_id": sighting_code, "numeric_id": sighting_id,
-                    "message": "Thank you. Your report was submitted and will be reviewed by authorised staff."}), 201
+                    "message": "Thank you. Your report was submitted and will be reviewed by an administrator."}), 201
 
 @app.get("/api/cases/<case_ref>/status")
 def case_status(case_ref):

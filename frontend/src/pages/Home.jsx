@@ -5,7 +5,7 @@ import { api } from "../api.js";
 const STEPS = [
   ["Register or report", "Upload a clear photo with a few details. Families register cases; anyone can report a sighting."],
   ["AI compares faces", "The face is detected, converted to a numerical fingerprint and compared against every stored record."],
-  ["Humans verify", "Possible matches go to authorised staff. Nothing is acted on until a person confirms it."],
+  ["Humans verify", "Possible matches go to authorized administrators. Nothing is acted on until confirmed."],
   ["Family is alerted", "Once verified, the family or authority is notified by SMS or email."],
 ];
 
@@ -19,7 +19,7 @@ export default function Home() {
         <div className="in">
           <h1>Helping families find their missing loved ones, faster.</h1>
           <p>Register a missing person, or report someone you have seen. Our face-matching system compares photos
-            in seconds and passes possible matches to trained staff to verify.</p>
+            in seconds and passes possible matches to administrators to verify.</p>
           <div className="btns">
             <Link className="btn accent" to="/register">Report a missing person</Link>
             <Link className="btn ghost" to="/report">I saw someone</Link>
@@ -45,7 +45,7 @@ export default function Home() {
           ))}
         </div>
         <div className="notice" style={{ marginTop: 28 }}>
-          <strong>Privacy first:</strong> photos are only visible to authorised staff. Public users never see
+          <strong>Privacy first:</strong> photos are only visible to authorized administrators. Public users never see
           other people's photos or match results.
         </div>
       </div>

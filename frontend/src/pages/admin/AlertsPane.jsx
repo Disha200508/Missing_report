@@ -16,7 +16,7 @@ export default function AlertsPane() {
 
   return (
     <>
-      <h3 style={{ marginBottom: 10 }}>Staff Match Alerts</h3>
+      <h3 style={{ marginBottom: 10 }}>Admin Match Alerts</h3>
       {!pendingMatches.length ? (
         <div className="empty" style={{ padding: "18px 0" }}>No pending probable-match alerts.</div>
       ) : (
