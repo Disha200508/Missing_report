@@ -19,7 +19,8 @@ RUN pip install --no-cache-dir torch torchvision --extra-index-url https://downl
 
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r ./backend/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu \
-    && pip install --no-cache-dir --no-deps facenet-pytorch==2.6.0
+    && pip install --no-cache-dir --no-deps facenet-pytorch==2.6.0 \
+    && python -c "from facenet_pytorch import InceptionResnetV1; InceptionResnetV1(pretrained='vggface2')"
 
 COPY backend ./backend
 COPY frontend ./frontend

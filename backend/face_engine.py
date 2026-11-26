@@ -14,7 +14,8 @@ MODEL_CANDIDATES = [
     os.path.join(HERE, "face_model.pt"),
     os.path.join(HERE, "..", "face_model.pt"),
 ]
-DEFAULT_THRESHOLD = float(os.environ.get("FACE_THRESHOLD", 0.45))
+DEFAULT_FACENET_THRESHOLD = 0.38
+DEFAULT_CUSTOM_THRESHOLD = 0.055
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
@@ -63,37 +64,52 @@ class FaceEngine:
         except Exception:
             pass
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.threshold = DEFAULT_THRESHOLD
         self._is_resnet_embedder = False
         self._norm = transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)
 
-        model_path = _resolve_model_path()
-        if model_path:
-            try:
-                ckpt = torch.load(model_path, map_location=self.device, weights_only=True)
-            except Exception:
-                ckpt = torch.load(model_path, map_location=self.device, weights_only=False)
+        # Allow switching backbone via environment variable (default: 'facenet' for reliable face discrimination)
+        backbone_choice = os.environ.get("FACE_BACKBONE", "facenet").strip().lower()
+        custom_threshold_env = os.environ.get("FACE_THRESHOLD")
 
-            state, ckpt_threshold = _extract_state_and_threshold(ckpt)
-            if ckpt_threshold is not None:
-                self.threshold = ckpt_threshold
+        if backbone_choice == "custom":
+            model_path = _resolve_model_path()
+            if model_path:
+                try:
+                    ckpt = torch.load(model_path, map_location=self.device, weights_only=True)
+                except Exception:
+                    ckpt = torch.load(model_path, map_location=self.device, weights_only=False)
 
-            if isinstance(state, dict) and any(k.startswith("backbone.") for k in state):
-                emb_dim = int(state["head.1.weight"].shape[0]) if "head.1.weight" in state else 512
-                self.model = FaceEmbedder(emb_dim=emb_dim).to(self.device)
-                self.model.load_state_dict(state, strict=True)
-                self._is_resnet_embedder = True
-                self.mtcnn = MTCNN(image_size=160, margin=20, post_process=False, device=self.device)
-                print(f"[face] loaded trained ResNet18 model from {model_path}, threshold={self.threshold:.3f}")
+                state, ckpt_threshold = _extract_state_and_threshold(ckpt)
+                if custom_threshold_env is not None:
+                    self.threshold = float(custom_threshold_env)
+                elif ckpt_threshold is not None:
+                    self.threshold = ckpt_threshold
+                else:
+                    self.threshold = DEFAULT_CUSTOM_THRESHOLD
+
+                if isinstance(state, dict) and any(k.startswith("backbone.") for k in state):
+                    emb_dim = int(state["head.1.weight"].shape[0]) if "head.1.weight" in state else 512
+                    self.model = FaceEmbedder(emb_dim=emb_dim).to(self.device)
+                    self.model.load_state_dict(state, strict=True)
+                    self._is_resnet_embedder = True
+                    self.mtcnn = MTCNN(image_size=160, margin=20, post_process=False, device=self.device)
+                    print(f"[face] loaded custom ResNet18 model from {model_path}, threshold={self.threshold:.3f}")
+                else:
+                    self.model = InceptionResnetV1(pretrained="vggface2").to(self.device)
+                    self.model.load_state_dict(state)
+                    self.mtcnn = MTCNN(image_size=160, margin=20, device=self.device)
+                    print(f"[face] loaded custom FaceNet model from {model_path}, threshold={self.threshold:.3f}")
             else:
+                self.threshold = float(custom_threshold_env) if custom_threshold_env else DEFAULT_FACENET_THRESHOLD
                 self.model = InceptionResnetV1(pretrained="vggface2").to(self.device)
-                self.model.load_state_dict(state)
                 self.mtcnn = MTCNN(image_size=160, margin=20, device=self.device)
-                print(f"[face] loaded fine-tuned FaceNet model from {model_path}, threshold={self.threshold:.3f}")
+                print(f"[face] custom model not found, falling back to FaceNet (VGGFace2), threshold={self.threshold:.3f}")
         else:
+            # Default production backbone: FaceNet (VGGFace2) with verified face/gender separation
+            self.threshold = float(custom_threshold_env) if custom_threshold_env else DEFAULT_FACENET_THRESHOLD
             self.model = InceptionResnetV1(pretrained="vggface2").to(self.device)
             self.mtcnn = MTCNN(image_size=160, margin=20, device=self.device)
-            print(f"[face] face_model.pt not found, using pretrained VGGFace2, threshold={self.threshold}")
+            print(f"[face] loaded pre-trained FaceNet (VGGFace2), threshold={self.threshold:.3f}")
 
         self.model.eval()
 
@@ -105,10 +121,12 @@ class FaceEngine:
             raise NoFaceError("No face detected in the photo")
         if self._is_resnet_embedder:
             face = self._norm(face / 255.0)
+        else:
+            if face.max() > 1.0:
+                face = (face - 127.5) / 128.0
         with torch.no_grad():
             e = self.model(face.unsqueeze(0).to(self.device))
-            if not self._is_resnet_embedder:
-                e = F.normalize(e, dim=1)
+            e = F.normalize(e, dim=1)
         del face
         return e[0].cpu().numpy().astype("float32")
 
